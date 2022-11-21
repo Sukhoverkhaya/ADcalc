@@ -1,12 +1,12 @@
 #include <iostream>
 #include <stdio.h>
 
-struct point {
+struct point{
     int x;
     int y;
 };
 
-struct rect {
+struct rect{
     struct point pt1;
     struct point pt2;
 };
@@ -17,7 +17,7 @@ rect getrect(struct point pt1, struct point pt2){
     return screen;
 };
 
-int main() {
+int main(){
     struct point pt = {320, 200};
     printf("%d,%d\n", pt.x, pt.y);
 
