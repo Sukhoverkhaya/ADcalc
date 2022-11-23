@@ -100,7 +100,7 @@ namespace SignalsProcessing
         {
         }
         //-------------------------------------
-        inline int32_t Exe(int32_t tone) // Детектор без привязкой к детектору QRS
+        inline int32_t Exe(int32_t tone, int32_t fs) // Детектор без привязкой к детектору QRS
         {
             int32_t res{0};
 
@@ -163,7 +163,7 @@ namespace SignalsProcessing
             if ( mNoise[posNoise] > LvR ) mNoise[posNoise] = LvR; // выбор наименьшего в интервале 12*8= 96ms
             // --- анализ локального максимума на QRS ---
 
-            if ( cntPeak == 250 )                 // от последнего пика прошло 250ms(10
+            if ( cntPeak >= 0.25*fs )                 // от последнего пика прошло 250ms(10
             {
 
                 int32_t err = LvP - LvD;                // вычисление усредненного пикового уровня

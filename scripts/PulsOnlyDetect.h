@@ -276,8 +276,8 @@ namespace SignalsProcessing
                 mPlsDtcTimeSar[2] = mPlsDtcTimeSar[1];
                 mPlsDtcTimeSar[1] = mPlsDtcTimeSar[0];
                 int32_t rg = rgPeriodTime;  // запись в буфер интервалов
-                if(rg< 400) rg= 400;
-                if(rg>1500) rg= 0;
+                if (rg < 400) rg= 400;
+                if (rg > 1500) rg= 0;
                 mPlsDtcTimeSar[0] = rg;
 
                 mErrTimePeriod = 0; // // счетчик временного интервала помехи от последней хорошей пульсации
