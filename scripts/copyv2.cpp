@@ -25,10 +25,10 @@ int main(int argc, char* argv[]){
 	// Читаем хедер
 	ih.open(hdr_name + ".hdr");
 
-	Header Head(*(&ih));
+	Header Head(ih);
 
 	double freq = Head.fs;            // частота дискретизации
-	vector<double> lsbs = Head.lsbs;  // веса младших разрядов для всех каналов
+	vector<double> lsbs = Head.lsbs;  // lsbs для всех каналов
 	int nchan = Head.leadnum;         // число каналов
 	int Len = Head.len;               // длина записи в отсчетах
 
