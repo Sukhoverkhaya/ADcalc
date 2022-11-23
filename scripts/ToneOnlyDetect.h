@@ -2,7 +2,7 @@
 //-----------------------------------------------------------------------------
 //
 //-----------------------------------------------------------------------------
-#include "xLog.h"
+// #include "xLog.h"
 #include <cstring>
 
 //#include "Soft/SignalProcessing/Alg/DiffFilter.h"
@@ -21,7 +21,7 @@ namespace SignalsProcessing
         inline ToneOnlyDetect()
 //        : mQrsEvent{qrs}
         {
-            xLog() << MY_FUNC;
+            // xLog() << MY_FUNC;
         }
         /*
         #define _kTonSN     3 // коэффициент отношения сигнал/шум
@@ -194,7 +194,7 @@ namespace SignalsProcessing
                 if ( LvP > LvZ )
                 { // Детектор сработал
                     res = 1000;
-                    xLog(xCOLOR::GREEN) << "Interval:" << mDetectInterval << "; Peak:" << LvP << "; LvN1:" << LvN1 << "; LvN2:" << LvN2 << "; LvZ:" << LvZ;
+                    // xLog(xCOLOR::GREEN) << "Interval:" << mDetectInterval << "; Peak:" << LvP << "; LvN1:" << LvN1 << "; LvN2:" << LvN2 << "; LvZ:" << LvZ;
                     mDetectInterval = 0;  // счетчик точек между пиками,интервалами поиска
                 }
 
