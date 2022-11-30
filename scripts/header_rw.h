@@ -12,24 +12,24 @@
 
 using namespace std;
 
-struct Header { // Лёшина читалка хедеров с сокращениями и изменениями
-	int leadnum; // число каналов
-	int len;      // длина записи в отсчетах
-	float fs;     // частота дискретизации
+struct Header {               // Лёшина читалка хедеров с сокращениями и изменениями
+	int leadnum;              // число каналов
+	int len;                  // длина записи в отсчетах
+	float fs;                 // частота дискретизации
 	vector<string> leadnames; // имена каналов (отведений)
-	vector<double> lsbs;  // веса младших разрядов для всех каналов
-	string type = "int32";         // тип данных 
+	vector<double> lsbs;      // веса младших разрядов для всех каналов
+	string type = "int32";    // тип данных 
 
 	Header(istream &stream) {
 		double lsb = 0;                // вес младшего разряда
 		long long startPoint = 0;      // первая точка
 		long long endPoint = 0;        // последняя точка сигнала
-		string realTime;              // реальное время
+		string realTime;               // реальное время
 
 		string line;
 		getline(stream, line);
 		auto tmpstream = istringstream(line);
-		tmpstream >> leadnum >> fs >> lsb; // >> type;
+		tmpstream >> leadnum >> fs >> lsb;     // >> type;
 
 		lsbs.push_back(lsb);
 
@@ -42,4 +42,18 @@ struct Header { // Лёшина читалка хедеров с сокраще�
 		for (int i = 0; i < leadnum; i++) stream >> leadnames[i];
 		for (int i = 0; i < leadnum; i++) stream >> lsbs[i];
 	};
+
+	int getlead(string leadname){
+		
+		int leadnumber = -1;
+
+		for (int i = 0; i < leadnames.size(); i++){
+			if (leadnames[i] == leadname){
+				leadnumber = i;
+				break;
+			}
+		}
+		
+		return leadnumber;
+	}
 };

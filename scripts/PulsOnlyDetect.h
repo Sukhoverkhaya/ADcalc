@@ -70,12 +70,12 @@ namespace SignalsProcessing
             flgEnable = true;
             Repeat();
 
-            rgPrsZero       = prs;  // регистр значения давления в точке перехода через 0 тахоосциллограммы
-            mPlsSpeed       = 0;    // скорость на интервале выделенной пульсации
-            mPlsSpeedLast   = 0;    // скорость на предыдущем интервале
+            rgPrsZero      = prs;  // регистр значения давления в точке перехода через 0 тахоосциллограммы
+            mPlsSpeed      = 0;    // скорость на интервале выделенной пульсации
+            mPlsSpeedLast  = 0;    // скорость на предыдущем интервале
 
-            mErrTimeFull    = 0;    // счетчик временного интервала помехи за все время измерения
-            mErrTimePeriod  = 0;  // счетчик временного интервала помехи от последней хорошей пульсации
+            mErrTimeFull   = 0;    // счетчик временного интервала помехи за все время измерения
+            mErrTimePeriod = 0;  // счетчик временного интервала помехи от последней хорошей пульсации
 
             memset( mPlsDtcMaxAmpl, 0, sizeof(mPlsDtcMaxAmpl));   // таблица максимумов амплитуд
             memset( mPlsDtcTimeSar, 0, sizeof(mPlsDtcTimeSar));   // буфер усреднения PP интервалов
@@ -113,12 +113,12 @@ namespace SignalsProcessing
             //if (OksiPls.LvP < _OksiPlsTchMin) { OksiPls.LvP = _OksiPlsTchMin; };
             //if (OksiPls.LvP > _OksiPlsTchMax) { OksiPls.LvP = _OksiPlsTchMax; };
             //-----------------------------------
-            if(mComp == ZeroLvTch)  // <_OksiPlsShift выбор типа полуволны компаратора
+            if(mComp == ZeroLvTch) // <_OksiPlsShift выбор типа полуволны компаратора
             {   // Lv<0 положительный полупериод // фронт пульсации
 
 //                if(rgTchMax < mTch) rgTchMax = mTch;
 
-                if(mTch < ZeroLvTch)// тест на смену полупериода
+                if(mTch < ZeroLvTch) // тест на смену полупериода
                 {
                     // завершение фронта пульсации
                     // в этой точке завершается фронт и мы переключаем компаратор
@@ -141,7 +141,7 @@ namespace SignalsProcessing
 
 //                if(rgTchMin > mTch) rgTchMin = mTch;
 
-                if(mTch > mComp)// тест на смену полупериода
+                if(mTch > mComp) // тест на смену полупериода
                 {
                     // Начало цикла детекции периода сигнала(фронт пульсовой волны)
                     // в этой точке начинается фронт и мы перекльчаем компаратор
