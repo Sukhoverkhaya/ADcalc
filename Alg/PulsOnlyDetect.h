@@ -138,7 +138,6 @@ namespace SignalsProcessing
             else
             {   // Lv>=0 отрицательный полупериод // спад пульсации
                 //???mCompLv = OksiPls.LvP / 2;
-
 //                if(rgTchMin > mTch) rgTchMin = mTch;
 
                 if(mTch > mComp) // тест на смену полупериода

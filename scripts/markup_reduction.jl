@@ -1,4 +1,10 @@
+# Переведение разметки из формата, который (ПОКА) выдаёт плюсовый алгоритм, в "гуишный" формат
+# (можно будет отсматривать в гуи + сравнивать с референтной, которая формируется в гуи)
 using DataFrames
+
+include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/help_func.jl")
+include("../src/readfiles.jl") 
+include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/refmkpguifunctions.jl") 
 
 function readcppmkp(fname, vseg)
 
@@ -18,21 +24,15 @@ function readcppmkp(fname, vseg)
     return mkp
 end
 
-# readcppmkp("data/KT 07 AD ECG/PX11321102817293_pres_mkp.txt")
-
-
-include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/help_func.jl")
-include("../src/readfiles.jl") 
-include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/refmkpguifunctions.jl") 
-
 # пути
-rawpath = "D:/INCART/Pulse_Data/all bases"
-mkppath = "data"
-adpath = "D:/INCART/Pulse_Data/ref AD"
-basenm = "Noise Base"
-# filename = "PX11321102817293"
+rawpath = "D:/INCART/Pulse_Data/all bases" # путь к бинарям
+mkppath = "data" # локальный путь с папкой, где лежать результаты разметки после run.jl
+adpath = "D:/INCART/Pulse_Data/ref AD" # путь к папке с таблицами АД из КТ3
+basenm = "Noise Base" # имя базы (соответсвует имени всех относящихся к ней папок)
+# filename = "PX11321102817293" # отладка
 
-redalgmarkuppath = "formatted alg markup"
+redalgmarkuppath = "formatted alg markup" # куда сохраняется итоговый формат разметки
+#____________________________________________________________________________________________
 
 allbasefiles = readdir("$rawpath/$basenm")
 allbins = filter(x -> split(x, ".")[end]=="bin", allbasefiles)

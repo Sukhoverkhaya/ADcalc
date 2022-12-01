@@ -5,16 +5,11 @@
 #include "SumFilter.h"
 #include "badsplit.h"
 
-struct Bounds{
-	int ibeg;
-	int iend;
-};
-
 int main(int argc, char* argv[]){
-	std::string fname;     // имена читаемых бинаря и его хедера (совпадают)
-	std::ifstream ih, ib;  // потоки на чтение бинаря и хедера
+	string fname;     // имена читаемых бинаря и его хедера (совпадают)
+	ifstream ih, ib;  // потоки на чтение бинаря и хедера
 
-	std::ofstream odiff, opresmkp, otonemkp; // потоки на запись (здесь - файлы с дифференцированным сигналом и разметкой)
+	ofstream odiff, opresmkp, otonemkp; // потоки на запись (здесь - файлы с дифференцированным сигналом и разметкой)
 
 	//-----------------------------------------------------------------------------
 	// читаем аргументы командной строки
@@ -59,8 +54,11 @@ int main(int argc, char* argv[]){
 	int32_t toneres;       			// Выход первичного детектора тонов
 
 	// открываем файлы на запись
-	std::string nameonly = badsplit(fname);
-	std::string fold = "D:/INCART/PulseDetectorVer1/data/";
+	vector<string> splitpath = badsplit(fname,'/');
+	string nameonly = splitpath[splitpath.size()-1]; // последний элемент (имя файла)
+	string basename = splitpath[splitpath.size()-2]; // предпоследний элемент (имя базы)
+
+	string fold = "D:/INCART/PulseDetectorVer1/data/"+basename+'/'; // путь на сохранение разметки
 
 	odiff.open(fold + nameonly + "_diff.txt");
 	opresmkp.open(fold + nameonly + "_pres_mkp.txt");

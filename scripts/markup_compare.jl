@@ -1,3 +1,5 @@
+# сравнение разметок (реф и тест, "гуишных" форматов!)
+
 using Plots
 using DataFrames
 
@@ -6,7 +8,9 @@ include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/refmkpguifunctions.jl")
 include("../src/readfiles.jl") 
 include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/my_filt.jl")
 
-# из разметки тонов читаем позиции, из пульсаций - минимумы или макисмумы
+# include("../src/bypointcompare.jl")
+
+# из разметки тонов читаем позиции, из пульсаций - минимумы
 struct MKP
     pos::Int32
     type::Int64
@@ -98,12 +102,15 @@ function metricscalc(mt::Vector{Metrics})
     return Metrics(tTP, tFP, tFN, tSe, tPPV)
 end
 
-ref_fold = "ref from gui"
-mkp_fold = "formatted alg markup"
-basename = "Noise Base"
+#__________________________________________________________
+ref_fold = "ref from gui" # папка в текущем проекте, куда перенесена референтная разметка гуишного формата
+mkp_fold = "formatted alg markup" # папка в текущем проекте, где лежит реформатированная разметка после markup_reduction.jl
+stat_fold = "compare statistics" # папка в текущем проекте, куда сохраняется результат расчета статистик по сравнению разметок
+basename = "Noise Base" # имя базы (все папки с относящимися к ней данными должны называться также)
 
 # reffiles = readdir("$ref_fold/$basename")
 mkpfiles = readdir("$mkp_fold/$basename")
+#__________________________________________________________
 
 ftmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpfiles)) # вектор метрик по измерениям по всей базе
 fpmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpfiles)) # для подсчета среднего по всем файлам
@@ -111,6 +118,7 @@ fpmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpfiles)) # для подсчета
 afmetrics_pres = NamedTuple[]
 afmetrics_tone = NamedTuple[]
 
+# расчет статы по каждому файлу базы
 for i in 1:lastindex(mkpfiles) # по файлам
     # i = 11
     reffile = "$ref_fold/$basename/$(mkpfiles[i])"
@@ -224,6 +232,7 @@ for i in 1:lastindex(mkpfiles) # по файлам
     ftmm0[i] = tp
 end
 
+# расчет статы по всей базе
 pt = metricscalc(fpmm0)
 tt = metricscalc(ftmm0)
 
@@ -233,8 +242,14 @@ ttm = (filename = "Total", measure = 0, TP = tt.TP, FP = tt.FP, FN = tt.FN, Se =
 push!(afmetrics_pres, tpm)
 push!(afmetrics_tone, ttm)
 
+# перевод всей статистики в датафрейм для сохранения в csv
 df_pres = DataFrame(afmetrics_pres)
 df_tone = DataFrame(afmetrics_tone)
 
-CSV.write("pres_stat.csv", df_pres, delim = ";")
-CSV.write("tone_stat.csv", df_tone, delim = ";")
+# создание папок под стату, если не было
+try readdir(stat_fold) catch e mkdir(stat_fold) end
+try readdir("$stat_fold/$basename") catch e mkdir("$stat_fold/$basename") end
+
+# сохранение статы
+CSV.write("$stat_fold/$basename/pres_stat.csv", df_pres, delim = ";")
+CSV.write("$stat_fold/$basename/tone_stat.csv", df_tone, delim = ";")
