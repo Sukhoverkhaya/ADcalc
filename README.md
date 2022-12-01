@@ -47,7 +47,7 @@ exe запускается по файлам базы из scripts/run.jl.
 
     * Предварительно создать папку data/*имя базы* в текущем проекте.
 
-2. Переведение полученной разметки в "гуишный" формат для возможности сравнения с референтной и просмотра в гуи > [`scripts/markup_reduction.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/markup_reduction.jl)
+2. Переведение полученной разметки в "стандартный" формат > [`scripts/markup_reduction.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/markup_reduction.jl)
 
     * Указать все необходимые пути (см. комментарии в самом файле; отсутствующие папки для сохранения разметки будут созданы автоматически).
 
