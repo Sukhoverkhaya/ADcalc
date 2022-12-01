@@ -8,35 +8,34 @@
 
 [`ToneOnlyDetect.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/ToneOnlyDetect.h) - Детектор тонов. Взят из WebDevice, из изменений только привязка некоторых пороговых значений к подаваемой на вход частоте дискретизации (было захардкожено на 1000 Гц по понятным причинам, но минимум одна из используемых баз снята на 250 Гц).
 
-`PulsOnlyDetect.h` - Детектор пульсаций (с параметризацией). Взят из WebDevice, изменений не вносилось.
+[`PulsOnlyDetect.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/PulsOnlyDetect.h) - Детектор пульсаций (с параметризацией). Взят из WebDevice, изменений не вносилось.
 
-`DiffFilter.h` - Дифференциатор, основа взята из WebDevice и частично переделана.
+[`DiffFilter.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/DiffFilter.h) - Дифференциатор, основа взята из WebDevice и частично переделана.
 
-`Sumfilter.h` - Интегратор, основа взята из WebDevice и частично переделана.
+[`Sumfilter.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/SumFilter.h) - Интегратор, основа взята из WebDevice и частично переделана.
 
-`header_rw.h` - Чтение хедеров, написано с использованием кода Алексея с изменениями.
+[`header_rw.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/header_rw.h) - Чтение хедеров, написано с использованием кода Алексея с изменениями.
 
-`badsplit.h` - самодельный сплит (используется для целей формирования путей к сохраняемым файлам на основе путей обрабатываемых файлов).
+[`badsplit.h`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/badsplit.h) - самодельный сплит (используется для целей формирования путей к сохраняемым файлам на основе путей обрабатываемых файлов).
 
-`main.cpp` - Сводит вышеперечисленное в алгоритм разметки одного файла. 
+[`main.cpp`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/Alg/main.cpp) - Сводит вышеперечисленное в алгоритм разметки одного файла. 
 exe запускается по файлам базы из scripts/run.jl. 
 Сохраняет результат в data/*Имя базы*/*Имя файла*_...
 
 ### Julia
 ***Папка scripts:***
 
-`run.jl` - запуск exe с алгоримом разметки (предварительно сбилдить Alg/main.cpp) по выбранной базе (см. комментарии в самом файле).
+[`run.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/run.jl) - запуск exe с алгоримом разметки (предварительно сбилдить Alg/main.cpp) по выбранной базе (см. комментарии в самом файле).
 
-`markup_reduction.jl` - переведение разметки из формата на выходе алгоритма разметки в "шуишный" формат (в котором хранится референтная разметка).
+[`markup_reduction.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/markup_reduction.jl) - переведение разметки из формата на выходе алгоритма разметки в "шуишный" формат (в котором хранится референтная разметка).
 
-`markup_compare.jl` - сравнение референтной и тестовой разметок по выбранной базе с расчетом статистик.
+[`markup_compare.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/markup_compare.jl) - сравнение референтной и тестовой разметок по выбранной базе с расчетом статистик.
 
-`visualisation.jl` - используется для отладки.
+[`visualisation.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/scripts/visualisation.jl) - используется для отладки.
 
 ***Папка src:***
 
-`readfiles.jl` - взятый ранее скрипт для чтения бинарей с хедерами.
-
+[`readfiles.jl`](https://github.com/Sukhoverkhaya/ADcalc/blob/main/src/readfiles.jl) - взятый ранее скрипт для чтения бинарей с хедерами.
 
 ## Сценарий использования:
 
