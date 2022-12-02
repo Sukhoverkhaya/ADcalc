@@ -147,19 +147,21 @@ for i in 1:lastindex(mkpfiles) # по файлам
         ref_tone = readmkp("$rf/tone.csv")
         alg_tone = readmkp("$mkpf/tone.csv")
 
+        rc = 0.25 * fs # радиус поиска соответсвующих точек
+
         # сравнение по пульсациям
         ref_pres_pos = map(x -> x.pos, ref_pres)
         alg_pres_pos = map(x -> x.pos, alg_pres) 
-        pres_comp = calc_indexpairs(ref_pres_pos, alg_pres_pos, 0.5*fs)
+        pres_comp = calc_indexpairs(ref_pres_pos, alg_pres_pos, rc)
 
         # сравнение по тонам
         ref_tone_pos = map(x -> x.pos, ref_tone)
         alg_tone_pos = map(x -> x.pos, alg_tone) 
-        tone_comp = calc_indexpairs(ref_tone_pos, alg_tone_pos, 0.5*fs)
+        tone_comp = calc_indexpairs(ref_tone_pos, alg_tone_pos, rc)
 
         ################ визуализация ##########
-        binfile = "D:/INCART/Pulse_Data/all bases/$basename/$(mkpfiles[i]).bin"
-        signals, fs, timestart, units = readbin(binfile);
+        # binfile = "D:/INCART/Pulse_Data/all bases/$basename/$(mkpfiles[i]).bin"
+        # signals, fs, timestart, units = readbin(binfile);
 
         # графики по пульсациям
         # Pres = signals.Pres
