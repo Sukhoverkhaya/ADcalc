@@ -5,11 +5,14 @@
 #include "SumFilter.h"
 #include "badsplit.h"
 
+#include "TestControlAd.h"
+// #include "estimate_AD_tone.h"
+
 int main(int argc, char* argv[]){
 	string fname;     // имена читаемых бинаря и его хедера (совпадают)
 	ifstream ih, ib;  // потоки на чтение бинаря и хедера
 
-	ofstream odiff, opresmkp, otonemkp; // потоки на запись (здесь - файлы с дифференцированным сигналом и разметкой)
+	ofstream odiff, opresmkp, otonemkp, oadmkp; // потоки на запись (здесь - файлы с дифференцированным сигналом и разметкой)
 
 	//-----------------------------------------------------------------------------
 	// читаем аргументы командной строки
@@ -38,6 +41,7 @@ int main(int argc, char* argv[]){
 
 	int SIZE = nchan * sizeof(int32_t);
 
+	// для детекторов
 	int32_t N = 0.1*freq;  		     // первый множитель - шаг фильтра в секундах (можно задавать извне!!)
 	DiffFilter difffilt(N, false);   // Дифференциатор с шагом N
 	int32_t diff;          		     // Выход дифференциатора (одна точка)
@@ -53,19 +57,30 @@ int main(int argc, char* argv[]){
 	tonedet.Start();
 	int32_t toneres;       			// Выход первичного детектора тонов
 
+	// для алгоритма АД
+	ControlTone cntrltone(freq);
+	ControlAd cntrlAD(freq, cntrltone);
+	// ToneEvent tone;
+	// a.Exe(tone);
+	int ADres = 0;
+	int prevADres = 0;
+	int ADmark = 0;
+
 	// открываем файлы на запись
 	vector<string> splitpath = badsplit(fname,'/');
 	string nameonly = splitpath[splitpath.size()-1]; // последний элемент (имя файла)
 	string basename = splitpath[splitpath.size()-2]; // предпоследний элемент (имя базы)
 
-	string fold = "D:/INCART/PulseDetectorVer1/data/"+basename+'/'; // путь на сохранение разметки
+	string fold = "D:/INCART/PulseDetectorVer1/data/" + basename + '/'; // путь на сохранение разметки
 
-	odiff.open(fold + nameonly + "_diff.txt");
-	opresmkp.open(fold + nameonly + "_pres_mkp.txt");
-	otonemkp.open(fold + nameonly + "_tone_mkp.txt");
+	// odiff.open(fold + nameonly + "_diff.txt");
+	// opresmkp.open(fold + nameonly + "_pres_mkp.txt");
+	// otonemkp.open(fold + nameonly + "_tone_mkp.txt");
+	oadmkp.open(fold + nameonly + "_ad_mkp.txt");
 
 	opresmkp << "pos" << endl;
 	otonemkp << "pos" << endl;
+	oadmkp << "ADpos	ADval" << endl;
 
 	int32_t* readbuf = new int32_t[nchan];
 	int k = 0;                     // счетчик строк (также текущий номер отсчета)
@@ -84,32 +99,116 @@ int main(int argc, char* argv[]){
 		pulse = readbuf[PRES];
 		tone = readbuf[TONE];
 
+		cntrlAD.Mode(pulse, tone);
+
 		sum = sumfilt.Exe(pulse); // тахо (задержка 0.1*fs/2)
 		diff = difffilt.Exe(sum); // фильтрованное тахо (задержка 0.1*fs/2)
 		odiff << diff << endl;
 
-		pulseres = pulsedet.Exe(sum, diff);
-		toneres = tonedet.Exe(tone, freq);
+		pulseres = pulsedet.Exe(sum, diff); // результат детектора пульсаций
+		toneres = tonedet.Exe(tone, freq);  // результат детектора тонов
 
-								    
+		// if (ISVALID(pulse, tone)){	
+
 		if (pulseres != 0) {
 			// пишутся позиции минимумов
 			pos = k - (sumfilt.delay + difffilt.delay);  // ??делается поправка на задержку фильтров!!
-			opresmkp << pos << endl;
+			// opresmkp << pos << endl; // пишем в файл позицию минимума пульсации (начало фронта)
 		};
 
 		if (toneres != 0){
-			otonemkp << k << endl;
+			// otonemkp << k << endl;   // пишем в файл позицию тона
+			// формируем ToneEvent
+			ToneEvent toneEv;
+			toneEv.bad = false;
+			toneEv.pos = k;
+			toneEv.val = tone;
+			toneEv.press = pulse;
+			ADres = cntrlAD.Exe(toneEv);
 		};
+
+
+
+		// if (ADres != 0){
+		// 	if (ADres != prevADres && (ADres - prevADres) == 1) // если знаечние на выходе изменилось (прошло новое событие) не больше, чем на +1 - ничего не пропустили
+		// 	{
+
+		// 	}
+		// 	else (ADres != prevADres && (ADres - prevADres) != 1) // в противном случае пропущенные значения заполняем 0
+		// 	{
+		// 		int nskip = (ADres > prevADres) ? (ADres - prevADres - 1) : 
+
+		// 	};
+		// };
+
+		if (ADres != 0 && ADres != prevADres){
+			oadmkp << k << "	" << int(pulse*lsbs[PRES]) << "	" << endl;
+		};
+		prevADres = ADres;
+		// };
+		// cerr << cntrlAD.mode << endl;
+
+		// };
 
 		k++;
 	} while (!(&ib)->eof());
-	// cerr << k << endl;          // проверка количества прочитанных строк
+	// cerr << k << endl;          	// проверка количества прочитанных строк
 
-	odiff.close();
-	otonemkp.close();
-	opresmkp.close();
+	// odiff.close();
+	// otonemkp.close();
+	// opresmkp.close();
+	oadmkp.close();
 	ib.close();
 	//-----------------------------------------------------------------------------
 };
 
+// int main(int argc, char* argv[]) // тест estimate_AD_tone.h
+// {
+// 	SKV::ESTIMATE_AD_TONE test;
+// 	test.Init(10);
+// 	test.SetMode(true);
+
+// 	cerr << test.kPres << endl;
+// 	cerr << test.mode << endl;
+	
+// }
+
+//____________________________________
+
+// struct A
+// {
+// 	enum B
+// 	{
+// 		state1 = 0,
+// 		state2,
+// 		state3,
+// 		state4,
+// 	};
+// };
+
+// int main(int argc, char* argv[]) 
+// {
+
+// 	A::B state;
+// 	string str = "hello, world!";
+
+// 	state = A::B::state3;
+
+// 	const int a = 1000;
+
+// 	cerr << str[state] << endl;
+// 	cerr << a << endl;
+// };
+
+// // ________________________________________
+// int main(int argc, char* argv[]) 
+// {
+// 	int fs = 1000;
+// 	ControlTone cntrltone(fs);
+// 	ControlAd a(fs, cntrltone);
+// 	ToneEvent tone;
+
+// 	a.Exe(tone);
+
+// 	cerr << a.state << endl;
+// };

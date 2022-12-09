@@ -39,6 +39,7 @@ allbins = filter(x -> split(x, ".")[end]=="bin", allbasefiles)
 allfnames = map(x -> split(x, ".")[1], allbins)
 
 for filename in allfnames[1:end]
+# filename = allfnames[1]
     # чтение исходного сигнала
     signals, fs, _, _ = readbin("$rawpath/$basenm/$filename")
     Tone = signals.Tone  # пульсации
@@ -56,7 +57,44 @@ for filename in allfnames[1:end]
     Tone_guimkp = map((x,d) -> map(y -> ToneGuiMkp(y-d.ibeg, 1), x), Tone_mkp, vseg)
 
     # получение референтных границ АД и рабочей зоны на накачке и на спуске (ПО АМПЛИТУДЕ)
-    ad_alg0 = read_alg_ad("$adpath/$basenm/$filename.ad")
+    # ad_alg0 = read_alg_ad("$adpath/$basenm/$filename.ad")
+
+    admkpfile = "$mkppath/$basenm/$(filename)_ad_mkp.txt"
+    adi = NamedTuple{(:pos, :val), NTuple{2, Int}}[]
+    open(admkpfile) do file # Открываем файл
+        needwrite = false
+        while !eof(file)
+            line = readline(file)
+            if needwrite
+                values = split(line, '	')
+                push!(adi, (pos = parse(Int, values[1]), val = parse(Int, values[2])))
+            end
+            needwrite = true
+        end
+    end
+
+    ad_alg0 = NamedTuple{(:pump, :desc), NTuple{2, AD}}[]
+    for i in 1:lastindex(vseg)
+        localad = filter(x -> x.pos >= vseg[i].ibeg && x.pos <= vseg[i].iend, adi)
+        adloc = AD(0,0)
+        if isempty(localad)
+            push!(ad_alg0, (pump = adloc, desc = adloc))
+        elseif length(localad) == 1 # если нашло только одно, то это только дад на накачке
+            push!(ad_alg0, (pump = AD(0, localad[1].val), desc = adloc))
+        elseif length(localad) == 2 
+            if localad[1].pos < localad[2].pos 
+                push!(ad_alg0, (pump = AD(localad[2].val, localad[1].val), desc = adloc))
+            else
+                push!(ad_alg0, (pump = adloc, desc = AD(localad[1].val, localad[2].val)))
+            end
+        elseif length(localad) == 3
+            push!(ad_alg0, (pump = AD(localad[2].val, localad[1].val), desc = AD(localad[3].val, 0)))
+        elseif length(localad) == 4
+            push!(ad_alg0, (pump = AD(localad[2].val, localad[1].val), desc = AD(localad[3].val, localad[4].val)))
+        end
+    end
+
+    # ad_alg0
 
     # границы рабочей зоны (пик треугольника давления - 10 мм, минимум спуска + 10 мм)
     # на спуске (ПО АМПЛИТУДЕ)
