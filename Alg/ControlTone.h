@@ -190,10 +190,10 @@ struct StateToneInfl2 : BaseStateTone
 		// ++sm.sz;
 	}
 	
-	void Tick(int32_t PrsMsr) // пока подаем PrsMsr снаружи
+	void Tick() // пока подаем PrsMsr снаружи
 	{
 		timer++;
-		if( PrsMsr < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
+		if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 
 		// if( timer > sm.wait * sm.Fs )
 		if((sm.buf[sm.cursor].pos - sm.buf[sm.i3s].pos) > (sm.wait * sm.Fs))
@@ -457,9 +457,9 @@ struct StateToneDefl3 : BaseStateTone
 		sm.DeflSuccess = true;
 	}		
 		
-	void Tick(int32_t PrsMsr) // пока подаем снаружи
+	void Tick()
 	{
-		if( sm.deflEnd.press - PrsSet(10) > PrsMsr ||  PrsSet(30) > PrsMsr ) //?
+		if( sm.deflEnd.press - PrsSet(10) > sm.buf[sm.cursor].press ||  PrsSet(30) > sm.buf[sm.cursor].press ) //?
 		{
 			//sm.Pmax = GET_SERVICE(BpmMediator)->PrsMsr;
 			sm.ChangeState(STT::STATE_SUCCESS);

@@ -202,8 +202,8 @@ public:
     BaseStateTone(ControlTone& _sm) : sm(_sm) { } // конструктор, вход - ссылка на объект типа ControlTone
     
     // методы ниже прописаны в cpp (!! проверить, нужны ли тут)
-    void Tick()      { }; // прописаны в cpp (!! проверить, нужен ли тут)
-    void NewTone(ToneEvent& toneEvent) { };
-    void Enter()     { };
-    void Exit()      { };	
+    virtual void Tick()      { }; // прописаны в cpp (!! проверить, нужен ли тут)
+    virtual void NewTone(ToneEvent& toneEvent) { };
+    virtual void Enter(int PressMax)     { };
+    virtual void Exit()      { };	
 };

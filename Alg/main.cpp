@@ -8,7 +8,7 @@
 #include "TestControlAd.h"
 // #include "estimate_AD_tone.h"
 
-int main(int argc, char* argv[]){
+int main(int argc, char* argv[]) {
 	string fname;     // имена читаемых бинаря и его хедера (совпадают)
 	ifstream ih, ib;  // потоки на чтение бинаря и хедера
 
@@ -142,6 +142,7 @@ int main(int argc, char* argv[]){
 		// };
 
 		if (ADres != 0 && ADres != prevADres){
+
 			oadmkp << k << "	" << int(pulse*lsbs[PRES]) << "	" << endl;
 		};
 		prevADres = ADres;
@@ -161,6 +162,30 @@ int main(int argc, char* argv[]){
 	ib.close();
 	//-----------------------------------------------------------------------------
 };
+
+// struct test
+// {
+// 	int a;
+
+// 	test(){a = 0;};
+
+// 	reset(int b){a = b;};
+// };
+
+// int main(int argc, char* argv[]){
+// 	test* M[5];
+// 	test** C;
+
+// 	for(int i=0; i<5;i++){
+// 		M[i] = new test;
+// 	};
+
+// 	C = M;
+
+// 	C[4] -> reset(5);
+// 	cerr << C[4] -> a << endl;
+// 	// cerr << *C[4] << endl;
+// };
 
 // int main(int argc, char* argv[]) // тест estimate_AD_tone.h
 // {
