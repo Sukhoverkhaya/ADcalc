@@ -197,7 +197,6 @@ public:
 struct BaseStateTone
 {
 public:
-
     ControlTone& sm; // ссылка на объект типа ControlTone
 
     BaseStateTone(ControlTone& _sm) : sm(_sm) { } // конструктор, вход - ссылка на объект типа ControlTone

@@ -3,7 +3,6 @@
 struct ST
 {
 public:
-
     bool stateChanged;
 	bool ON;
 

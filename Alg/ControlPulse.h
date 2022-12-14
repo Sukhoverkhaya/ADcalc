@@ -1,10 +1,13 @@
 // (определение некоторых классов и методов, объявленных в ControlPulseD.h)
 // сделано на основании ControlPulse.cpp из firmware, но без обертки для железа
+#pragma once
 
 #include "ControlPulseD.h"
 
 const int NO_BAD_TILL_PRESS        = 70;
 const int NO_END_SEARCH_TILL_PRESS = 120;
+
+#define fnAbs(a)  		( ((a) <  0 ) ? -(a) : (a) )
 
 int32_t med5(int32_t* buf) // Медиана из 5 элементов, буфер на 5 элементов
 {
@@ -18,9 +21,9 @@ int32_t med5(int32_t* buf) // Медиана из 5 элементов, буфе
 		{
 			if( i == j) continue;
 			
-			if( buf[i] > buf[j] )      {s++};
-			else if( buf[i] < buf[j] ) {s--};
-			else                       {thr++};
+			if( buf[i] > buf[j] )      {s++;}
+			else if( buf[i] < buf[j] ) {s--;}
+			else                       {thr++;};
 			
 			if( fnAbs(s) <= thr )
 			{
@@ -248,7 +251,6 @@ struct StatePulseInfl2 : BaseStatePulse
 		}
 	}	
 	
-		
 	int32_t k1000;
 	const int maxBadTime;
 	int32_t badTime;
@@ -332,9 +334,9 @@ struct StatePulseDefl0 : BaseStatePulse
 {
 	StatePulseDefl0(ControlPulse& sm) : BaseStatePulse(sm) {}
 	
-	virtual void Enter(int PressMax)
+	virtual void Enter()
 	{
-		sm.Pmax = PressMax;
+		// sm.Pmax = PressMax;
 	}
 		
 	virtual void NewPulse(PulseEvent& PulseEvent) 
@@ -685,33 +687,33 @@ void ControlPulse::Reset()
 	//	
 }
 //-----------------------------------------------------------------------------
-void ControlPulse::EventNewPulse(PulseEvent& PulseEvent)
-{
-	if(!ON) return;
+// void ControlPulse::EventNewPulse(PulseEvent& PulseEvent)
+// {
+// 	if(!ON) return;
 	
-	if( IsStateChanged() ) 
-	{
-		currentStateMachine[currentState]->Exit();
-		currentState = nextState;
-		currentStateMachine[currentState]->Enter();
-	}
+// 	if( IsStateChanged() ) 
+// 	{
+// 		currentStateMachine[currentState]->Exit();
+// 		currentState = nextState;
+// 		currentStateMachine[currentState]->Enter();
+// 	}
 	
-	currentStateMachine[currentState]->NewPulse(PulseEvent);
-}
-//-----------------------------------------------------------------------------
-void ControlPulse::EventTick()
-{
-	if(!ON) return;
+// 	currentStateMachine[currentState]->NewPulse(PulseEvent);
+// }
+// //-----------------------------------------------------------------------------
+// void ControlPulse::EventTick()
+// {
+// 	if(!ON) return;
 	
-	if( IsStateChanged() ) 
-	{
-		currentStateMachine[currentState]->Exit();
-		currentState = nextState;
-		// createDebugMarkStepPulse(currentState);
-		currentStateMachine[currentState]->Enter();
-	}	
+// 	if( IsStateChanged() ) 
+// 	{
+// 		currentStateMachine[currentState]->Exit();
+// 		currentState = nextState;
+// 		// createDebugMarkStepPulse(currentState);
+// 		currentStateMachine[currentState]->Enter();
+// 	}	
 	
-	currentStateMachine[currentState]->Tick();
+// 	currentStateMachine[currentState]->Tick();
 }
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------

@@ -59,7 +59,8 @@ int main(int argc, char* argv[]){
 	int32_t toneres;       			// Выход первичного детектора тонов
 
 	// для алгоритма АД
-	ControlTone cntrltone(freq);
+	// ControlTone cntrltone(freq);
+	ControlPulse cntrltone(freq);
 	ControlAd cntrlAD(freq, cntrltone);
 	// ToneEvent tone;
 	// a.Exe(tone);

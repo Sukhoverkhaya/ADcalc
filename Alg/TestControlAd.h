@@ -1,4 +1,5 @@
 #include "ControlTone.h" 
+#include "ControlPulse.h" 
 #include "WorkMode.h"
 
 struct Event
@@ -13,13 +14,6 @@ struct AD
     Event DAD;
 };
 
-// enum Modes
-// {
-//     WAIT = 0,
-//     INFL,
-//     DEFL,
-// };
-
 enum ADResult
 {
     FAIL = -1,
@@ -30,8 +24,6 @@ enum ADResult
     deflDAD,
 };
 
-// #define ISVALID(press, tone) ((press > PrsSet(15) && tone > -1e7) ? true : false)
-
 class ControlAd
 {
 public:
@@ -39,12 +31,18 @@ public:
     AD inflAD;
     AD deflAD;
     int Fs;
-    ControlTone& controltone;
+    // ControlTone& controltone;
+    ControlPulse& controltone;
 
-    BaseStateTone* StateToneInfl[3];
-    BaseStateTone* StateToneDefl[4];
+    // BaseStateTone* StateToneInfl[3];
+    // BaseStateTone* StateToneDefl[4];
 
-    BaseStateTone** CurrentStateMachine;
+    // BaseStateTone** CurrentStateMachine;
+
+    BaseStatePulse* StateToneInfl[3];
+    BaseStatePulse* StateToneDefl[4];
+
+    BaseStatePulse** CurrentStateMachine;
 
     WorkMode* mode;
     int PressMax; // вершина треугольника давления
@@ -54,7 +52,8 @@ public:
 
     ADResult res;
 
-    ControlAd(int _fs, ControlTone& _controltone) 
+    // ControlAd(int _fs, ControlTone& _controltone) 
+    ControlAd(int _fs, ControlPulse& _controltone) 
     : Fs(_fs), controltone(_controltone)
     {
         mode = new WorkMode(_fs);
@@ -79,11 +78,10 @@ public:
         timer = 0;
         notfound = true;
         controltone.Reset();
-    }
+    };
 
     int Exe(ToneEvent& _toneEv)  // вызывается только для событий тонов (или пульсаций)
     {
-
         if (mode->mode != WAIT && notfound)
         {
             state = controltone.nextState;

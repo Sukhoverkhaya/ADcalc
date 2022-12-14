@@ -158,8 +158,8 @@ public:
 	BaseStatePulse*  stateArrayDefl[6];
 	BaseStatePulse** currentStateMachine;
 	
-	int32_t wait = 3;
-	int32_t rail = 100;
+	static const int wait = 3;
+	static const int rail = 100;
 	PulseEvent* buf;
 
 	PulseEvent bufInfl[rail];
