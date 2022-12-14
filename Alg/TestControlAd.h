@@ -1,4 +1,5 @@
 #include "ControlTone.h" 
+#include "WorkMode.h"
 
 struct Event
 {
@@ -12,23 +13,24 @@ struct AD
     Event DAD;
 };
 
-enum Modes
-{
-    WAIT = 0,
-    INFL,
-    DEFL,
-};
+// enum Modes
+// {
+//     WAIT = 0,
+//     INFL,
+//     DEFL,
+// };
 
 enum ADResult
 {
-    NOTHING = 0,
+    FAIL = -1,
+    NOTHING,
     inflDAD,
     inflSAD,
     deflSAD,
     deflDAD,
 };
 
-#define ISVALID(press, tone) ((press > PrsSet(15) && tone > -1e7) ? true : false)
+// #define ISVALID(press, tone) ((press > PrsSet(15) && tone > -1e7) ? true : false)
 
 class ControlAd
 {
@@ -44,7 +46,7 @@ public:
 
     BaseStateTone** CurrentStateMachine;
 
-    Modes mode;
+    WorkMode* mode;
     int PressMax; // вершина треугольника давления
     int timer;
 
@@ -55,7 +57,7 @@ public:
     ControlAd(int _fs, ControlTone& _controltone) 
     : Fs(_fs), controltone(_controltone)
     {
-        mode = WAIT;
+        mode = new WorkMode(_fs);
         PressMax = 0;
         res = NOTHING;
 
@@ -82,71 +84,39 @@ public:
     int Exe(ToneEvent& _toneEv)  // вызывается только для событий тонов (или пульсаций)
     {
 
-        if (mode == INFL && notfound)
+        if (mode->mode != WAIT && notfound)
         {
             state = controltone.nextState;
-            if (state >= 0 && state <= 2){ // этот if - временный костыль
-                CurrentStateMachine[state] -> NewTone(_toneEv);
-                CurrentStateMachine[state] -> Tick();
+            CurrentStateMachine[state] -> NewTone(_toneEv);
+            CurrentStateMachine[state] -> Tick();
 
-                if (controltone.nextState != state) 
-                {
-                    if (state == 1) {res = inflDAD;}
-                    else if (state == 2 && controltone.nextState == 4) {res = inflSAD; notfound = false;}
-                };
+            if (controltone.IsStateChanged()) 
+            {
+                if(!controltone.ON) {CurrentStateMachine[controltone.nextState] -> Enter();};
+                if (controltone.nextState == 1) {res = mode->mode == INFL ? inflDAD : deflSAD;}
+                else if (controltone.nextState == 4) {res = mode->mode == INFL ? inflSAD : deflDAD; notfound = false;}
             };
         }
-        else if (mode == DEFL && notfound)
-        {
-            state = controltone.nextState;
-            if (state >= 0 && state <= 3){ // этот if - временный костыль
-                CurrentStateMachine[state] -> NewTone(_toneEv);
-                CurrentStateMachine[state] -> Tick();
-
-                if (controltone.nextState != state) 
-                {
-                    if (state == 1) {res = deflSAD;}
-                    else if (state == 3 && controltone.nextState == 4) {res = deflDAD; notfound = false;}
-                };
-            };
-        };
 
         return res;
     };
 
     void Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
     {
-        if (mode == INFL){
-            if (press >= PressMax)
-            {
-                PressMax = press;
-                timer = 0;
-            }
-            else 
-            {
-                timer++;
-            }
-        };
-
-        bool isval = ISVALID(press, tone);
-
-        if (isval && mode == WAIT) 
+        mode -> ModeControl(press, tone);
+        if (mode->inflbeg)
         {
-            mode = INFL; 
             Reset();
-            CurrentStateMachine  = StateToneInfl;
+            CurrentStateMachine = StateToneInfl;
+            controltone.On();
         }
-        else if (!isval && mode == DEFL) 
+        else if (mode->deflbeg)
         {
-            mode = WAIT;
-        }
-        else if (isval && mode == INFL && timer > 2*Fs) 
-        {
-            mode = DEFL; 
             Reset();
             CurrentStateMachine = StateToneDefl;
-            CurrentStateMachine[state]->Enter(PressMax);
-            PressMax = 0;
-        }; 
-    };
+            CurrentStateMachine[state]->sm.Pmax = mode->PressMax;
+            mode -> Reset();
+            controltone.On();
+        }
+    }
 };

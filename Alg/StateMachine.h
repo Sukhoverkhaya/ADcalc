@@ -7,6 +7,6 @@ public:
     bool stateChanged;
 	bool ON;
 
-	void On()  { ON = true; }
-	void Off() { ON = false; }
+	virtual void On()  { ON = true; }
+	virtual void Off() { ON = false; }
 };

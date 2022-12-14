@@ -54,7 +54,8 @@ struct STT // Состояния коненчого автомата для то
 	};
 };
 
-class ControlTone : ST  // Наследование от ST из StateMachine
+class ControlTone : public ST  // Наследование от ST из StateMachine
+// class ControlTone : ST  // Наследование от ST из StateMachine
 {	
 public:
     // friend class  StateToneInfl0;
@@ -204,6 +205,6 @@ public:
     // методы ниже прописаны в cpp (!! проверить, нужны ли тут)
     virtual void Tick()      { }; // прописаны в cpp (!! проверить, нужен ли тут)
     virtual void NewTone(ToneEvent& toneEvent) { };
-    virtual void Enter(int PressMax)     { };
+    virtual void Enter()     { };
     virtual void Exit()      { };	
 };

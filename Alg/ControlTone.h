@@ -231,7 +231,7 @@ struct StateToneInflSuccess : BaseStateTone
 		
 	void Tick()
 	{
-		// sm.Off();
+		sm.Off();
 	}
 	
 };
@@ -242,7 +242,7 @@ struct StateToneInflFail : BaseStateTone
 		
 	void Tick()
 	{
-		// sm.Off();
+		sm.Off();
 	}
 	
 };
@@ -253,9 +253,9 @@ struct StateToneDefl0 : BaseStateTone
 {
 	StateToneDefl0(ControlTone& sm) : BaseStateTone(sm) {}
 				
-	void Enter(int32_t Prs) // пока подаем значение давления снаружи
+	void Enter() 
 	{
-		sm.Pmax = Prs;
+		// sm.Pmax = Prs;
 	}
 		
 	void NewTone(ToneEvent& toneEvent) 
@@ -484,7 +484,7 @@ struct StateToneDeflSuccess : BaseStateTone
 		
 	void Tick()
 	{
-		// sm.Off();
+		sm.Off();
 	}
 	
 };
@@ -496,7 +496,7 @@ struct StateToneDeflFail : BaseStateTone
 	void Tick()
 	{
 		sm.stopDefl = true;
-		// sm.Off();
+		sm.Off();
 	}
 	
 };

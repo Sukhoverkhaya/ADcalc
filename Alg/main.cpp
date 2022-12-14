@@ -8,7 +8,8 @@
 #include "TestControlAd.h"
 // #include "estimate_AD_tone.h"
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]){
+
 	string fname;     // имена читаемых бинаря и его хедера (совпадают)
 	ifstream ih, ib;  // потоки на чтение бинаря и хедера
 
@@ -126,8 +127,6 @@ int main(int argc, char* argv[]) {
 			toneEv.press = pulse;
 			ADres = cntrlAD.Exe(toneEv);
 		};
-
-
 
 		// if (ADres != 0){
 		// 	if (ADres != prevADres && (ADres - prevADres) == 1) // если знаечние на выходе изменилось (прошло новое событие) не больше, чем на +1 - ничего не пропустили
