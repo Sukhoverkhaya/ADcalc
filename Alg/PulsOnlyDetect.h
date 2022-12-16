@@ -51,6 +51,7 @@ namespace SignalsProcessing
 
         int32_t mPlsDtcTimeSar[4];   // буфер усреднения PP интервалов
         int32_t mPlsDtcMaxAmpl[3];   // таблица максимумов амплитуд
+
         //-----------------------------------------------------------------------------
         void Init()
         {

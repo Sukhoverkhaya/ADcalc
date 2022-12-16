@@ -161,15 +161,15 @@ public:
     // закомментив то, что снизу, оставляем метод Off в форме, унаследованной от ST
 
 	// virtual void Off()
-	// {
-	// 	// if(currentStateMachine == stateArrayDefl)
-	// 	// {
-	// 	// 	savedSzDefl =  sz;
-	// 	// }
-	// 	// else
-	// 	// {
-	// 	// 	savedSzInfl = sz;
-	// 	// }
+	// // {
+	// // 	// if(currentStateMachine == stateArrayDefl)
+	// // 	// {
+	// // 	// 	savedSzDefl =  sz;
+	// // 	// }
+	// // 	// else
+	// // 	// {
+	// // 	// 	savedSzInfl = sz;
+	// // 	// }
 	// 	ST::Off();
 	// }	
 

@@ -17,7 +17,7 @@ public:
 	
 	void Reset()
 	{
-		bad = 0;
+		bad = false;
 		pos = 0;
 		val = 0;
 		range = 0;
@@ -40,24 +40,23 @@ struct STP // Состояния для автоматов пульсаций
 	};
 };
 
-class  StatePulseInfl0;
-class  StatePulseInfl1;
-class  StatePulseInfl2;
-class  StatePulseInfl3;		
-class  StatePulseInflSuccess;
-class  StatePulseInflFail;
+// class  StatePulseInfl0;
+// class  StatePulseInfl1;
+// class  StatePulseInfl2;
+// class  StatePulseInfl3;		
+// class  StatePulseInflSuccess;
+// class  StatePulseInflFail;
 
-class  StatePulseDefl0;
-class  StatePulseDefl1;
-class  StatePulseDefl2;		
-class  StatePulseDefl3;
-class  StatePulseDeflSuccess;
-class  StatePulseDeflFail;
+// class  StatePulseDefl0;
+// class  StatePulseDefl1;
+// class  StatePulseDefl2;		
+// class  StatePulseDefl3;
+// class  StatePulseDeflSuccess;
+// class  StatePulseDeflFail;
 
 struct BaseStatePulse;
 class ControlPulse : public ST
 {	
-public:	
 	// friend class ControlAd;	
 
 	// friend class  StatePulseInfl0;	
@@ -75,71 +74,7 @@ public:
 	// friend class  StatePulseDeflFail;
 	
 public:
-	ControlPulse(const int _fs);
 
-	void EventNewPulse(PulseEvent& pulseEvent);
-	void EventTick();
-	void StartInflST()
-	{
-		Reset();
-		On();
-		currentStateMachine = stateArrayInfl;
-		buf = bufInfl;
-		stopInfl = false;
-		stopDefl = false;
-		savedSzInfl = 0;
-		savedSzDefl = 0;
-		InflSuccess = false;
-		DeflSuccess = false;
-		
-		inflBeg.Reset();
-		inflEnd.Reset();
-		deflBeg.Reset();
-		deflEnd.Reset();	
-
-		// createDebugMarkStepPulse(currentState);
-	}
-
-	void StartDeflST()
-	{
-		Reset();
-		On();
-		currentStateMachine = stateArrayDefl;
-		buf = bufDefl;
-	}
-	
-	virtual void Off()
-	{
-		if(currentStateMachine == stateArrayDefl)
-		{
-			savedSzDefl =  sz;
-		}
-		else
-		{
-			savedSzInfl = sz;
-		}
-		ST::Off();
-	}
-
-	void Reset();
-
-	virtual void ChangeState(STP::States _state)
-	{
-		nextState   = _state;
-		stateChanged = true;
-	}
-	
-	virtual bool IsStateChanged()
-	{
-		if(stateChanged)
-		{
-			stateChanged = false;
-			return true;
-		}
-		
-		return false;
-	}	
-	
 	bool stopInfl;
 	bool stopDefl;
 	STP::States currentState;
@@ -196,6 +131,72 @@ public:
 	int32_t rangeBuf[rangeRail];
 	int32_t rangeCursor;
 	//
+
+	ControlPulse(const int _fs);
+
+	// void EventNewPulse(PulseEvent& pulseEvent);
+	// void EventTick();
+	void StartInflST()
+	{
+		Reset();
+		On();
+		currentStateMachine = stateArrayInfl;
+		buf = bufInfl;
+		stopInfl = false;
+		stopDefl = false;
+		savedSzInfl = 0;
+		savedSzDefl = 0;
+		InflSuccess = false;
+		DeflSuccess = false;
+		
+		inflBeg.Reset();
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();	
+
+		// createDebugMarkStepPulse(currentState);
+	}
+
+	void StartDeflST()
+	{
+		Reset();
+		On();
+		currentStateMachine = stateArrayDefl;
+		buf = bufDefl;
+	}
+	
+	void Off()
+	{
+		// if(currentStateMachine == stateArrayDefl)
+		// {
+		// 	savedSzDefl =  sz;
+		// }
+		// else
+		// {
+		// 	savedSzInfl = sz;
+		// }
+		ST::Off();
+	}
+
+	void Reset();
+
+	void ChangeState(STP::States _state)
+	{
+		nextState   = _state;
+		stateChanged = true;
+	}
+	
+	bool IsStateChanged()
+	{
+		if(stateChanged)
+		{
+			stateChanged = false;
+			return true;
+		}
+		
+		return false;
+	}	
+	
 };	
 
 struct BaseStatePulse
@@ -206,7 +207,7 @@ public:
     BaseStatePulse(ControlPulse& _sm) : sm(_sm) { }
     
     virtual void Tick()      { };
-    virtual void NewPulse(PulseEvent& toneEvent)  { };
+    virtual void NewPulse(PulseEvent& PulseEvent)  { };
     virtual void Enter()     { };
     virtual void Exit()      { };	
 };

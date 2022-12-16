@@ -59,9 +59,9 @@ int main(int argc, char* argv[]){
 	int32_t toneres;       			// Выход первичного детектора тонов
 
 	// для алгоритма АД
-	// ControlTone cntrltone(freq);
-	ControlPulse cntrltone(freq);
-	ControlAd cntrlAD(freq, cntrltone);
+	ControlTone cntrltone(freq);
+	ControlPulse cntrlpulse(freq);
+	ControlAd cntrlAD(freq, cntrltone, cntrlpulse);
 	// ToneEvent tone;
 	// a.Exe(tone);
 	int ADres = 0;
@@ -93,6 +93,9 @@ int main(int argc, char* argv[]){
 	int PRES = Head.getlead("Pres");
 	int TONE = Head.getlead("Tone");
 
+	ToneEvent toneEv;    // событие: тон
+	PulseEvent pulseEv;  // событие: пульсация
+
 	do {
 		ib.read((char*)readbuf, SIZE);
 
@@ -116,17 +119,24 @@ int main(int argc, char* argv[]){
 			// пишутся позиции минимумов
 			pos = k - (sumfilt.delay + difffilt.delay);  // ??делается поправка на задержку фильтров!!
 			// opresmkp << pos << endl; // пишем в файл позицию минимума пульсации (начало фронта)
+			pulseEv.Reset();
+			pulseEv.pos 	= k;
+			pulseEv.press 	= pulse;
+			pulseEv.val 	= pulse; // здесь должно быть значение после фильтра выделения пульсаций
+			pulseEv.range 	= pulsedet.mPlsAmplitude;
+
+			ADres = cntrlAD.Exe(pulseEv);
 		};
 
 		if (toneres != 0){
 			// otonemkp << k << endl;   // пишем в файл позицию тона
 			// формируем ToneEvent
-			ToneEvent toneEv;
-			toneEv.bad = false;
+			toneEv.Reset();
 			toneEv.pos = k;
 			toneEv.val = tone;
 			toneEv.press = pulse;
-			ADres = cntrlAD.Exe(toneEv);
+
+			// ADres = cntrlAD.Exe(toneEv);
 		};
 
 		// if (ADres != 0){
@@ -140,12 +150,13 @@ int main(int argc, char* argv[]){
 
 		// 	};
 		// };
+	// ////////////////////////////////////////////////
+	// 	if (ADres != 0 && ADres != prevADres){
 
-		if (ADres != 0 && ADres != prevADres){
-
-			oadmkp << k << "	" << int(pulse*lsbs[PRES]) << "	" << endl;
-		};
-		prevADres = ADres;
+	// 		oadmkp << k << "	" << int(pulse*lsbs[PRES]) << "	" << endl;
+	// 	};
+	// 	prevADres = ADres;
+	// ////////////////////////////////////////////////////
 		// };
 		// cerr << cntrlAD.mode << endl;
 

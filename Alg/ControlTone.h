@@ -65,7 +65,7 @@ struct StateToneInfl1 : BaseStateTone // начинаем копить хоро�
 	void NewTone(ToneEvent& toneEvent) 
 	{
 		//Добавляем пульсацию в буфер
-		sm.buf[sm.cursor] = toneEvent;			
+		sm.buf[sm.cursor] = toneEvent;		
 		
 		//Если пришла плохая - ничего не делаем
 		if( sm.buf[sm.cursor].bad )
@@ -83,7 +83,7 @@ struct StateToneInfl1 : BaseStateTone // начинаем копить хоро�
 		sm.Nb++;
 
 		if( sm.Nb > 1 &&                  
-			sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
+			(sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
 		{
 			sm.Nb = 1;
 		}			
@@ -193,10 +193,11 @@ struct StateToneInfl2 : BaseStateTone
 	void Tick() // пока подаем PrsMsr снаружи
 	{
 		timer++;
+		// cerr << timer << endl;
 		if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 
-		// if( timer > sm.wait * sm.Fs )
-		if((sm.buf[sm.cursor].pos - sm.buf[sm.i3s].pos) > (sm.wait * sm.Fs))
+		if( timer > sm.wait * sm.Fs )
+		// if((sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > (sm.wait * sm.Fs))
 		{
 			timer = 0;	
 			sm.inflEnd = sm.buf[sm.ilast];
@@ -269,6 +270,7 @@ struct StateToneDefl0 : BaseStateTone
 		{		
 			sm.Nb = 1;
 			sm.i1 = sm.cursor;
+			sm.i2 = sm.cursor; /// from skv
 			sm.ChangeState(STT::STATE_1);
 		}
 		
@@ -383,9 +385,9 @@ struct StateToneDefl2 : BaseStateTone
 		{
 			sm.i3s = sm.cursor; //индекс последнего значимого пика
 			timer = 0; //Перезапускаем таймер
-			if ( sm.buf[sm.cursor].bad  == 0x0 ) sm.ilast = sm.cursor;
+			if ( !sm.buf[sm.cursor].bad  ) sm.ilast = sm.cursor;
 		}				
-		if ( sm.buf[sm.cursor].bad  == 0x0 ) //пересчитываем средний уровень только по хорошим
+		if ( !sm.buf[sm.cursor].bad ) //пересчитываем средний уровень только по хорошим
 		{
 			//пересчет-2, по медиане из 3-х
 			sm.medBuf[sm.medCursor] = sm.buf[sm.cursor].val; //заполнение буфера
@@ -423,8 +425,8 @@ struct StateToneDefl2 : BaseStateTone
 	void Tick()
 	{
 		timer++;
-		// if( timer > sm.wait * sm.Fs )
-		if((sm.buf[sm.cursor].pos - sm.buf[sm.i3s].pos) > (sm.wait * sm.Fs))
+		if( timer > sm.wait * sm.Fs )
+		// if((sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > (sm.wait * sm.Fs))
 		{
 			timer = 0;	
 			sm.deflEnd = sm.buf[sm.ilast];

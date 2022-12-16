@@ -4,8 +4,8 @@
 
 #include "ControlPulseD.h"
 
-const int NO_BAD_TILL_PRESS        = 70;
-const int NO_END_SEARCH_TILL_PRESS = 120;
+// const int NO_BAD_TILL_PRESS        = 70;
+// const int NO_END_SEARCH_TILL_PRESS = 120;
 
 #define fnAbs(a)  		( ((a) <  0 ) ? -(a) : (a) )
 
@@ -39,12 +39,12 @@ struct StatePulseInfl0 : BaseStatePulse
 {
 	StatePulseInfl0(ControlPulse& sm) : BaseStatePulse(sm) {}
 	
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		sm.buf[sm.cursor] = PulseEvent;
-		
+
 		if( PulseEvent.press > sm.Pmin && !sm.buf[sm.cursor].bad)
-		{			
+		{	
 			sm.Nb = 1;
 			sm.ChangeState(STP::STATE_1);
 			sm.i1 = sm.cursor;
@@ -60,16 +60,15 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 {
 	StatePulseInfl1(ControlPulse& sm) : BaseStatePulse(sm) {}
 								
-	virtual void Enter()
+	void Enter()
 	{
 		sm.Nb = 1;
 	}
 		
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = PulseEvent;			
-		
 		//Если пришла плохая - ничего не делаем
 		if( sm.buf[sm.cursor].bad )
 		{
@@ -86,7 +85,7 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 		sm.Nb++;
 
 		if( sm.Nb > 1 &&                  
-			sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
+			(sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
 		{
 			sm.Nb = 1;
 		}			
@@ -98,7 +97,7 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 			sm.Lvl /= 2;
 			sm.maxLvl = sm.Lvl;
 			
-			if( sm.buf[sm.i2].range > sm.Lvl / 2) //*0.5 //первая значимая
+			if(sm.buf[sm.i2].range > sm.Lvl / 2) //*0.5 //первая значимая
 			{
 				sm.inflBeg  = sm.buf[sm.i2]; //запоминаем пульсацию начала диастолич.
 				sm.ChangeState(STP::STATE_2);
@@ -129,7 +128,7 @@ struct StatePulseInfl2 : BaseStatePulse
 {
 	StatePulseInfl2(ControlPulse& sm) : BaseStatePulse(sm), k1000(0), maxBadTime(sm.Fs*5), badTime(0), imax(0), timer(0) {}
 				
-	virtual void Enter()
+	void Enter()
 	{
 		k1000 = 0;
 		badTime = 0;
@@ -141,7 +140,7 @@ struct StatePulseInfl2 : BaseStatePulse
 		//МЕТКА
 	}		
 		
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		// критерий браковки по времени и по количеству бракованных пульсаций 
     // будет плохо работать, если диастола на накачке захвачена рано!
@@ -152,7 +151,7 @@ struct StatePulseInfl2 : BaseStatePulse
 		//критерий браковки по времени
 		//всю браковку начинаем после NO_BAD_TILL_PRESS мм
 		
-		if( sm.buf[prevCursor].press < PrsSet(NO_BAD_TILL_PRESS) ) 
+		if( sm.buf[sm.cursor].press < PrsSet(NO_BAD_TILL_PRESS) ) 
 		{
 			// NOP..
 		}
@@ -230,15 +229,14 @@ struct StatePulseInfl2 : BaseStatePulse
 		// ++sm.sz;
 	}
 	
-	virtual void Tick()
+	void Tick()
 	{
 		timer++;
-		if(sm.rangeBuf[sm.rangeCursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
+		if(sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 		
 		if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
 		{
 			sm.inflEnd = sm.buf[sm.ilast];
-			
 			//проверка, что (сист*0.15) > (сист - диаст)
 			if( sm.inflEnd.press * 3 / 20 > ( sm.inflEnd.press - sm.inflBeg.press ) )  
 			{
@@ -262,7 +260,7 @@ struct StatePulseInfl2 : BaseStatePulse
 //{
 //	StatePulseInfl3(ControlPulse& sm) : BaseStatePulse(sm) {}
 //		
-//	virtual void Enter()
+//	void Enter()
 //	{	
 //		//МЕТКА
 //		_MARK( createHighBoundary(ADType_Pulse, ADDir_INFL); )
@@ -271,7 +269,7 @@ struct StatePulseInfl2 : BaseStatePulse
 //		sm.InflSuccess = true;
 //	}			
 //		
-//	virtual void Tick()
+//	void Tick()
 //	{
 //		int32_t currentPress = GET_SERVICE(BpmMediator)->PrsMsr;
 //		ControlTone* ct = GET_SERVICE(ControlTone);
@@ -285,7 +283,7 @@ struct StatePulseInfl2 : BaseStatePulse
 //		}
 //	}
 //				
-//	virtual void NewPulse(PulseEvent& PulseEvent) 
+//	void NewPulse(PulseEvent& PulseEvent) 
 //	{ 
 //		//Добавляем пульсацию в буфер
 //		if( sm.cursor >= sm.rail ) return;
@@ -301,7 +299,7 @@ struct StatePulseInflSuccess : BaseStatePulse
 {
 	StatePulseInflSuccess(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	virtual void Enter()
+	void Enter()
 	{	
 		//МЕТКА
 		// _MARK( createHighBoundary(ADType_Pulse, ADDir_INFL); )
@@ -310,7 +308,7 @@ struct StatePulseInflSuccess : BaseStatePulse
 		sm.InflSuccess = true;
 	}			
 		
-	virtual void Tick()
+	void Tick()
 	{
 		sm.Off();
 	}
@@ -321,7 +319,7 @@ struct StatePulseInflFail : BaseStatePulse
 {
 	StatePulseInflFail(ControlPulse& sm) : BaseStatePulse(sm) {}
 					
-	virtual void Tick()
+	void Tick()
 	{
 		sm.Off();
 	}
@@ -334,12 +332,12 @@ struct StatePulseDefl0 : BaseStatePulse
 {
 	StatePulseDefl0(ControlPulse& sm) : BaseStatePulse(sm) {}
 	
-	virtual void Enter()
+	void Enter()
 	{
 		// sm.Pmax = PressMax;
 	}
 		
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		sm.buf[sm.cursor] = PulseEvent;
 		
@@ -359,14 +357,14 @@ struct StatePulseDefl1 : BaseStatePulse //начинаем копить хоро
 {
 	StatePulseDefl1(ControlPulse& sm) : BaseStatePulse(sm) {}
 								
-	virtual void Enter()
+	void Enter()
 	{
 		// МЕТКА
 		// createHighBoundary(ADType_Pulse, ADDir_DEFL);
 		// МЕТКА		
 	}
 		
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = PulseEvent;			
@@ -387,7 +385,7 @@ struct StatePulseDefl1 : BaseStatePulse //начинаем копить хоро
 		sm.Nb++;
 
 		if( sm.Nb > 1 &&                  
-			sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
+			(sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > sm.wait * sm.Fs) // 2 пульсации - 3 секунды
 		{
 			sm.Nb = 1;
 		}			
@@ -431,7 +429,7 @@ struct StatePulseDefl2 : BaseStatePulse
 {
 	StatePulseDefl2(ControlPulse& sm) : BaseStatePulse(sm), k1000(0), maxBadTime(sm.Fs*5), badTime(0), imax(0), timer(0) {}
 		
-	virtual void Enter()
+	void Enter()
 	{
 		k1000 = 0;
 		badTime = 0;
@@ -443,7 +441,7 @@ struct StatePulseDefl2 : BaseStatePulse
 //		//МЕТКА		
 	}
 				
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{
 		// критерий браковки по времени и по количеству бракованных пульсаций 
     // будет плохо работать, если диастола на накачке захвачена рано!
@@ -527,7 +525,7 @@ struct StatePulseDefl2 : BaseStatePulse
 	}
 	
 		
-	virtual void Tick()
+	void Tick()
 	{
 		timer++;
 		if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
@@ -558,7 +556,7 @@ struct StatePulseDefl3 : BaseStatePulse
 {
 	StatePulseDefl3(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	virtual void Enter()
+	void Enter()
 	{
 		//МЕТКА
 		// _MARK( createLowBoundary(ADType_Pulse, ADDir_DEFL); )
@@ -567,9 +565,9 @@ struct StatePulseDefl3 : BaseStatePulse
 		sm.DeflSuccess = true;
 	}		
 		
-	virtual void Tick()
+	void Tick()
 	{
-		if( sm.deflEnd.press - PrsSet(10) > GET_SERVICE(BpmMediator)->PrsMsr ||  PrsSet(30) > GET_SERVICE(BpmMediator)->PrsMsr ) //?
+		if( sm.deflEnd.press - PrsSet(10) > sm.buf[sm.cursor].press ||  PrsSet(30) >sm.buf[sm.cursor].press ) //?
 		{
 			//sm.Pmax = GET_SERVICE(BpmMediator)->PrsMsr;
 			sm.ChangeState(STP::STATE_SUCCESS);
@@ -577,7 +575,7 @@ struct StatePulseDefl3 : BaseStatePulse
 		}
 	}
 				
-	virtual void NewPulse(PulseEvent& PulseEvent) 
+	void NewPulse(PulseEvent& PulseEvent) 
 	{ 
 		//Добавляем пульсацию в буфер
 		if( sm.cursor >= sm.rail ) return;
@@ -593,7 +591,7 @@ struct StatePulseDeflSuccess : BaseStatePulse
 {
 	StatePulseDeflSuccess(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	virtual void Tick()
+	void Tick()
 	{
 		sm.Off();
 	}
@@ -604,7 +602,7 @@ struct StatePulseDeflFail : BaseStatePulse
 {
 	StatePulseDeflFail(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	virtual void Tick()
+	void Tick()
 	{
 		sm.stopDefl = true;
 		sm.Off();
@@ -617,24 +615,24 @@ ControlPulse::ControlPulse(const int _fs)
 : Fs(_fs)
 {
 	
-	//State Infl
-	stateArrayInfl[STP::STATE_0] =       new StatePulseInfl0(*this);
-	stateArrayInfl[STP::STATE_1] =       new StatePulseInfl1(*this);
-	stateArrayInfl[STP::STATE_2] =       new StatePulseInfl2(*this);	
-//	stateArrayInfl[STP::STATE_3] =       new StatePulseInfl3(*this);
-	stateArrayInfl[STP::STATE_SUCCESS] = new StatePulseInflSuccess(*this);
-	stateArrayInfl[STP::STATE_FAIL] =    new StatePulseInflFail(*this);	
+// 	//State Infl
+// 	stateArrayInfl[STP::STATE_0] =       new StatePulseInfl0(*this);
+// 	stateArrayInfl[STP::STATE_1] =       new StatePulseInfl1(*this);
+// 	stateArrayInfl[STP::STATE_2] =       new StatePulseInfl2(*this);	
+// //	stateArrayInfl[STP::STATE_3] =       new StatePulseInfl3(*this);
+// 	stateArrayInfl[STP::STATE_SUCCESS] = new StatePulseInflSuccess(*this);
+// 	stateArrayInfl[STP::STATE_FAIL] =    new StatePulseInflFail(*this);	
 	
-	//State Defl
-	stateArrayDefl[STP::STATE_0] =       new StatePulseDefl0(*this);
-	stateArrayDefl[STP::STATE_1] =       new StatePulseDefl1(*this);
-	stateArrayDefl[STP::STATE_2] =       new StatePulseDefl2(*this);	
-	stateArrayDefl[STP::STATE_3] =       new StatePulseDefl3(*this);
-	stateArrayDefl[STP::STATE_SUCCESS] = new StatePulseDeflSuccess(*this);
-	stateArrayDefl[STP::STATE_FAIL] =    new StatePulseDeflFail(*this);
+// 	//State Defl
+// 	stateArrayDefl[STP::STATE_0] =       new StatePulseDefl0(*this);
+// 	stateArrayDefl[STP::STATE_1] =       new StatePulseDefl1(*this);
+// 	stateArrayDefl[STP::STATE_2] =       new StatePulseDefl2(*this);	
+// 	stateArrayDefl[STP::STATE_3] =       new StatePulseDefl3(*this);
+// 	stateArrayDefl[STP::STATE_SUCCESS] = new StatePulseDeflSuccess(*this);
+// 	stateArrayDefl[STP::STATE_FAIL] =    new StatePulseDeflFail(*this);
 	
 
-	currentStateMachine = stateArrayInfl;
+// 	currentStateMachine = stateArrayInfl;
 
 	Pmin    = PrsSet(40);
 	Pmax    = 0;//PrsSet(240);
@@ -714,7 +712,7 @@ void ControlPulse::Reset()
 // 	}	
 	
 // 	currentStateMachine[currentState]->Tick();
-}
+// }
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
 

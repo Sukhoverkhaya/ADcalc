@@ -27,34 +27,35 @@ enum ADResult
 class ControlAd
 {
 public:
-    STT::States state;
+    STP::States statePulse;
+    STT::States stateTone;
+
     AD inflAD;
     AD deflAD;
     int Fs;
-    // ControlTone& controltone;
-    ControlPulse& controltone;
 
-    // BaseStateTone* StateToneInfl[3];
-    // BaseStateTone* StateToneDefl[4];
+    ControlTone& controltone;
+    ControlPulse& controlpulse;
 
-    // BaseStateTone** CurrentStateMachine;
+    BaseStateTone* StateToneInfl[6];
+    BaseStateTone* StateToneDefl[6];
 
-    BaseStatePulse* StateToneInfl[3];
-    BaseStatePulse* StateToneDefl[4];
+    BaseStatePulse* StatePulseInfl[6];
+    BaseStatePulse* StatePulseDefl[6];
 
-    BaseStatePulse** CurrentStateMachine;
+    BaseStateTone** CurrentToneStateMachine;
+    BaseStatePulse** CurrentPulseStateMachine;
 
     WorkMode* mode;
     int PressMax; // вершина треугольника давления
-    int timer;
 
-    bool notfound;
+    bool notfoundbyTone;
+    bool notfoundbyPulse;
 
     ADResult res;
 
-    // ControlAd(int _fs, ControlTone& _controltone) 
-    ControlAd(int _fs, ControlPulse& _controltone) 
-    : Fs(_fs), controltone(_controltone)
+    ControlAd(int _fs, ControlTone& _controltone, ControlPulse& _controlpulse) 
+    : Fs(_fs), controltone(_controltone), controlpulse(_controlpulse)
     {
         mode = new WorkMode(_fs);
         PressMax = 0;
@@ -63,58 +64,126 @@ public:
         StateToneInfl[STT::STATE_0] = new StateToneInfl0(_controltone);
         StateToneInfl[STT::STATE_1] = new StateToneInfl1(_controltone);
         StateToneInfl[STT::STATE_2] = new StateToneInfl2(_controltone);
+        // StateToneInfl[STT::STATE_3] = new StateToneInfl3(_controltone);
+        StateToneInfl[STT::STATE_SUCCESS] = new StateToneInflSuccess(_controltone);
+        StateToneInfl[STT::STATE_FAIL] = new StateToneInflFail(_controltone);
 
         StateToneDefl[STT::STATE_0] = new StateToneDefl0(_controltone);
         StateToneDefl[STT::STATE_1] = new StateToneDefl1(_controltone);
         StateToneDefl[STT::STATE_2] = new StateToneDefl2(_controltone);
         StateToneDefl[STT::STATE_3] = new StateToneDefl3(_controltone);
+        StateToneDefl[STT::STATE_SUCCESS] = new StateToneDeflSuccess(_controltone);
+        StateToneDefl[STT::STATE_FAIL] = new StateToneDeflFail(_controltone);
 
-        Reset();
+        StatePulseInfl[STT::STATE_0] = new StatePulseInfl0(_controlpulse);
+        StatePulseInfl[STT::STATE_1] = new StatePulseInfl1(_controlpulse);
+        StatePulseInfl[STT::STATE_2] = new StatePulseInfl2(_controlpulse);
+        // StatePulseInfl[STT::STATE_SUCCESS] = new StatePulseInflSuccess(_controltone);
+        // StatePulseInfl[STT::STATE_FAIL] = new StatePulseInflFail(_controltone);
+
+        StatePulseDefl[STT::STATE_0] = new StatePulseDefl0(_controlpulse);
+        StatePulseDefl[STT::STATE_1] = new StatePulseDefl1(_controlpulse);
+        StatePulseDefl[STT::STATE_2] = new StatePulseDefl2(_controlpulse);
+        StatePulseDefl[STT::STATE_3] = new StatePulseDefl3(_controlpulse);
+        // StatePulseDefl[STT::STATE_SUCCESS] = new StatePulseDeflSuccess(_controltone);
+        // StatePulseDefl[STT::STATE_FAIL] = new StatePulseDeflFail(_controltone);
+
+        ResetTone();
+        ResetPulse();
     };
 
-    void Reset()
+    void ResetTone()
     {
-        state = STT::STATE_0;
-        timer = 0;
-        notfound = true;
-        controltone.Reset();
+        stateTone = STT::STATE_0;
+        notfoundbyTone = true; /// костыль
+        // controltone.Reset();
     };
 
-    int Exe(ToneEvent& _toneEv)  // вызывается только для событий тонов (или пульсаций)
+    void ResetPulse()
     {
-        if (mode->mode != WAIT && notfound)
-        {
-            state = controltone.nextState;
-            CurrentStateMachine[state] -> NewTone(_toneEv);
-            CurrentStateMachine[state] -> Tick();
+        statePulse = STP::STATE_0;
+        notfoundbyPulse = true; //// костыль
+        // controlpulse.Reset();
+    };
 
-            if (controltone.IsStateChanged()) 
-            {
-                if(!controltone.ON) {CurrentStateMachine[controltone.nextState] -> Enter();};
-                if (controltone.nextState == 1) {res = mode->mode == INFL ? inflDAD : deflSAD;}
-                else if (controltone.nextState == 4) {res = mode->mode == INFL ? inflSAD : deflDAD; notfound = false;}
-            };
-        }
+    int Exe(ToneEvent& _toneEv) // вызывается только для событий тонов
+    {  
+        if (controltone.ON) { CurrentToneStateMachine[controltone.nextState] -> NewTone(_toneEv); }
+    };
 
-        return res;
+    int Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
+    {
+        if (controlpulse.ON) { CurrentPulseStateMachine[controlpulse.nextState] -> NewPulse(_pulseEv); };
+
     };
 
     void Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
     {
         mode -> ModeControl(press, tone);
+
         if (mode->inflbeg)
         {
-            Reset();
-            CurrentStateMachine = StateToneInfl;
-            controltone.On();
+            ResetTone();
+            ResetPulse();
+            controltone.StartInflST();
+            controlpulse.StartInflST();
+
+            CurrentToneStateMachine = StateToneInfl;
+            CurrentPulseStateMachine = StatePulseInfl;
         }
         else if (mode->deflbeg)
         {
-            Reset();
-            CurrentStateMachine = StateToneDefl;
-            CurrentStateMachine[state]->sm.Pmax = mode->PressMax;
+            ResetTone();
+            ResetPulse();
+            controltone.StartDeflST();
+            controlpulse.StartDeflST();
+
+            CurrentToneStateMachine = StateToneDefl;
+            CurrentPulseStateMachine = StatePulseDefl;
+
+            CurrentToneStateMachine[stateTone]->sm.Pmax = mode->PressMax;
+            CurrentPulseStateMachine[statePulse]->sm.Pmax = mode->PressMax;
             mode -> Reset();
-            controltone.On();
-        }
+        };
+
+        if (controltone.ON) 
+        {
+            CurrentToneStateMachine[controltone.nextState] -> Tick();
+
+            if (controltone.IsStateChanged()) 
+            {
+                CurrentToneStateMachine[controltone.nextState] -> Enter();
+                if (controltone.InflSuccess)
+                {
+                    cerr << "INFL T " << controltone.inflBeg.press/1000 << "    " << controltone.inflEnd.press/1000 << endl;
+                    controltone.InflSuccess = false;
+                }
+                if (controltone.DeflSuccess)
+                {
+                    cerr << "DEFL T " << controltone.deflBeg.press/1000 << "    " << controltone.deflEnd.press/1000 << endl;
+                    controltone.DeflSuccess = false;
+                }
+            };
+        };
+
+        if (controlpulse.ON) 
+        {
+            CurrentPulseStateMachine[controlpulse.nextState] -> Tick();
+
+            if (controlpulse.IsStateChanged()) 
+            {
+                CurrentPulseStateMachine[controlpulse.nextState] -> Enter();
+                if (controlpulse.InflSuccess)
+                {
+                    cerr << "INFL P " << controlpulse.inflBeg.press/1000 << "   " << controlpulse.inflEnd.press/1000 << endl;
+                    controlpulse.InflSuccess = false;
+                }
+                if (controlpulse.DeflSuccess)
+                {
+                    cerr << "DEFL P " << controlpulse.deflBeg.press/1000 << "    " << controlpulse.deflEnd.press/1000 << endl;
+                    controlpulse.DeflSuccess = false;
+                }
+            };
+        };
     }
 };
