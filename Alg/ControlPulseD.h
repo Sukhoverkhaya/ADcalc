@@ -161,22 +161,22 @@ public:
 	{
 		Reset();
 		On();
-		currentStateMachine = stateArrayDefl;
+		// currentStateMachine = stateArrayDefl;
 		buf = bufDefl;
 	}
 	
-	void Off()
-	{
-		// if(currentStateMachine == stateArrayDefl)
-		// {
-		// 	savedSzDefl =  sz;
-		// }
-		// else
-		// {
-		// 	savedSzInfl = sz;
-		// }
-		ST::Off();
-	}
+	// void Off()
+	// {
+	// 	// if(currentStateMachine == stateArrayDefl)
+	// 	// {
+	// 	// 	savedSzDefl =  sz;
+	// 	// }
+	// 	// else
+	// 	// {
+	// 	// 	savedSzInfl = sz;
+	// 	// }
+	// 	ST::Off();
+	// }
 
 	void Reset();
 

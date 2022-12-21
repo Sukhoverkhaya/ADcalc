@@ -14,6 +14,18 @@ struct AD
     Event DAD;
 };
 
+struct Res
+{
+    int32_t a1;
+    int32_t a2;
+
+    Res(int32_t a, int32_t b)
+    {
+        a1 = a;
+        a2 = b;
+    }
+};
+
 enum ADResult
 {
     FAIL = -1,
@@ -49,8 +61,8 @@ public:
     WorkMode* mode;
     int PressMax; // вершина треугольника давления
 
-    bool notfoundbyTone;
-    bool notfoundbyPulse;
+    // bool notfoundbyTone;
+    // bool notfoundbyPulse;
 
     ADResult res;
 
@@ -78,15 +90,15 @@ public:
         StatePulseInfl[STT::STATE_0] = new StatePulseInfl0(_controlpulse);
         StatePulseInfl[STT::STATE_1] = new StatePulseInfl1(_controlpulse);
         StatePulseInfl[STT::STATE_2] = new StatePulseInfl2(_controlpulse);
-        // StatePulseInfl[STT::STATE_SUCCESS] = new StatePulseInflSuccess(_controltone);
-        // StatePulseInfl[STT::STATE_FAIL] = new StatePulseInflFail(_controltone);
+        StatePulseInfl[STT::STATE_SUCCESS] = new StatePulseInflSuccess(_controlpulse);
+        StatePulseInfl[STT::STATE_FAIL] = new StatePulseInflFail(_controlpulse);
 
         StatePulseDefl[STT::STATE_0] = new StatePulseDefl0(_controlpulse);
         StatePulseDefl[STT::STATE_1] = new StatePulseDefl1(_controlpulse);
         StatePulseDefl[STT::STATE_2] = new StatePulseDefl2(_controlpulse);
         StatePulseDefl[STT::STATE_3] = new StatePulseDefl3(_controlpulse);
-        // StatePulseDefl[STT::STATE_SUCCESS] = new StatePulseDeflSuccess(_controltone);
-        // StatePulseDefl[STT::STATE_FAIL] = new StatePulseDeflFail(_controltone);
+        StatePulseDefl[STT::STATE_SUCCESS] = new StatePulseDeflSuccess(_controlpulse);
+        StatePulseDefl[STT::STATE_FAIL] = new StatePulseDeflFail(_controlpulse);
 
         ResetTone();
         ResetPulse();
@@ -95,14 +107,14 @@ public:
     void ResetTone()
     {
         stateTone = STT::STATE_0;
-        notfoundbyTone = true; /// костыль
+        // notfoundbyTone = true; /// костыль
         // controltone.Reset();
     };
 
     void ResetPulse()
     {
         statePulse = STP::STATE_0;
-        notfoundbyPulse = true; //// костыль
+        // notfoundbyPulse = true; //// костыль
         // controlpulse.Reset();
     };
 
@@ -113,11 +125,11 @@ public:
 
     int Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
     {
-        if (controlpulse.ON) { CurrentPulseStateMachine[controlpulse.nextState] -> NewPulse(_pulseEv); };
+        if (controlpulse.ON) { CurrentPulseStateMachine[controlpulse.nextState] -> NewPulse(_pulseEv);};
 
     };
 
-    void Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
+    Res Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
     {
         mode -> ModeControl(press, tone);
 
@@ -155,14 +167,28 @@ public:
                 CurrentToneStateMachine[controltone.nextState] -> Enter();
                 if (controltone.InflSuccess)
                 {
-                    cerr << "INFL T " << controltone.inflBeg.press/1000 << "    " << controltone.inflEnd.press/1000 << endl;
+                    cerr << "INFL T " << controltone.inflBeg.press/1000 << " " << controltone.inflEnd.press/1000 << endl;
                     controltone.InflSuccess = false;
                 }
                 if (controltone.DeflSuccess)
                 {
-                    cerr << "DEFL T " << controltone.deflBeg.press/1000 << "    " << controltone.deflEnd.press/1000 << endl;
+                    cerr << "DEFL T " << controltone.deflBeg.press/1000 << " " << controltone.deflEnd.press/1000 << endl;
                     controltone.DeflSuccess = false;
                 }
+                // CurrentToneStateMachine[controltone.nextState] -> Enter();
+                // if (controltone.DeflSuccess)
+                // {
+                //     controltone.DeflSuccess = false;
+                //     return Res(controltone.deflBeg.press/1000, controltone.deflEnd.press/1000);
+                // }
+                // else
+                // {
+                //     if (controltone.InflSuccess)
+                //     {
+                //         controltone.InflSuccess = false;
+                //         return Res(controltone.inflBeg.press/1000, controltone.inflEnd.press/1000);
+                //     }
+                // }
             };
         };
 
@@ -175,15 +201,30 @@ public:
                 CurrentPulseStateMachine[controlpulse.nextState] -> Enter();
                 if (controlpulse.InflSuccess)
                 {
-                    cerr << "INFL P " << controlpulse.inflBeg.press/1000 << "   " << controlpulse.inflEnd.press/1000 << endl;
+                    cerr << "INFL P " << controlpulse.inflBeg.press/1000 << " " << controlpulse.inflEnd.press/1000 << endl;
                     controlpulse.InflSuccess = false;
                 }
                 if (controlpulse.DeflSuccess)
                 {
-                    cerr << "DEFL P " << controlpulse.deflBeg.press/1000 << "    " << controlpulse.deflEnd.press/1000 << endl;
+                    cerr << "DEFL P " << controlpulse.deflBeg.press/1000 << " " << controlpulse.deflEnd.press/1000 << endl;
                     controlpulse.DeflSuccess = false;
                 }
+                // if (controlpulse.DeflSuccess)
+                // {
+                //     controlpulse.DeflSuccess = false;
+                //     return Res(controlpulse.deflBeg.press/1000, controlpulse.deflEnd.press/1000);
+                // }
+                // else
+                // {
+                //     if (controlpulse.InflSuccess)
+                //     {
+                //         controlpulse.InflSuccess = false;
+                //         return Res(controlpulse.inflBeg.press/1000, controlpulse.inflEnd.press/1000);
+                //     }
+                // }
             };
         };
+
+        // return Res(0,0);
     }
 };

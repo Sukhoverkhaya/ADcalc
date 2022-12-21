@@ -234,7 +234,8 @@ struct StatePulseInfl2 : BaseStatePulse
 		timer++;
 		if(sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 		
-		if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
+		// if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
+		if( (timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
 		{
 			sm.inflEnd = sm.buf[sm.ilast];
 			//проверка, что (сист*0.15) > (сист - диаст)
@@ -394,6 +395,7 @@ struct StatePulseDefl1 : BaseStatePulse //начинаем копить хоро
 		{	
 			//среднее по двум пульсациям
 			sm.Lvl = sm.buf[sm.cursor].val + sm.buf[sm.i1].val;
+			// sm.Lvl = sm.buf[sm.cursor].range + sm.buf[sm.i1].range;
 			sm.Lvl /= 2;
 			sm.maxLvl = sm.Lvl;
 			

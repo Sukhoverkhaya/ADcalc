@@ -55,7 +55,7 @@ namespace SignalsProcessing
 //        int32_t rgNoise;
 //        int32_t Reg;
 
-        static constexpr int32_t sizeNoise{10};
+        static constexpr int sizeNoise{10};
         int32_t mNoise[sizeNoise]; // = {0,0,0,0}; // 25*10 = 250ms
         int32_t posNoise;
 

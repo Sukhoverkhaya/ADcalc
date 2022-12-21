@@ -6,6 +6,7 @@
 #include "badsplit.h"
 
 #include "TestControlAd.h"
+// #include "ToneDetect.h"
 // #include "estimate_AD_tone.h"
 
 int main(int argc, char* argv[]){
@@ -82,7 +83,7 @@ int main(int argc, char* argv[]){
 
 	opresmkp << "pos" << endl;
 	otonemkp << "pos" << endl;
-	oadmkp << "ADpos	ADval" << endl;
+	// oadmkp << "ADpos	ADval" << endl;
 
 	int32_t* readbuf = new int32_t[nchan];
 	int k = 0;                     // счетчик строк (также текущий номер отсчета)
@@ -104,6 +105,12 @@ int main(int argc, char* argv[]){
 		pulse = readbuf[PRES];
 		tone = readbuf[TONE];
 
+		// Res res = cntrlAD.Mode(pulse, tone);
+		// if (res.a1 != 0)
+		// {
+		// 	oadmkp << res.a1 << "	" << res.a2 << endl;
+		// }
+
 		cntrlAD.Mode(pulse, tone);
 
 		sum = sumfilt.Exe(pulse); // тахо (задержка 0.1*fs/2)
@@ -122,10 +129,10 @@ int main(int argc, char* argv[]){
 			pulseEv.Reset();
 			pulseEv.pos 	= k;
 			pulseEv.press 	= pulse;
-			pulseEv.val 	= pulse; // здесь должно быть значение после фильтра выделения пульсаций
+			pulseEv.val 	= diff; // здесь должно быть значение после фильтра выделения пульсаций
 			pulseEv.range 	= pulsedet.mPlsAmplitude;
 
-			ADres = cntrlAD.Exe(pulseEv);
+			cntrlAD.Exe(pulseEv);
 		};
 
 		if (toneres != 0){
@@ -136,7 +143,7 @@ int main(int argc, char* argv[]){
 			toneEv.val = tone;
 			toneEv.press = pulse;
 
-			// ADres = cntrlAD.Exe(toneEv);
+			cntrlAD.Exe(toneEv);
 		};
 
 		// if (ADres != 0){
@@ -173,6 +180,85 @@ int main(int argc, char* argv[]){
 	ib.close();
 	//-----------------------------------------------------------------------------
 };
+/////////////////////////////////////////////////////////////////////////////////////////////////////
+// int main(int argc, char* argv[]){
+
+// 	string fname;     // имена читаемых бинаря и его хедера (совпадают)
+// 	ifstream ih, ib;  // потоки на чтение бинаря и хедера
+
+// 	ofstream odiff, opresmkp, otonemkp, oadmkp; // потоки на запись (здесь - файлы с дифференцированным сигналом и разметкой)
+
+// 	//-----------------------------------------------------------------------------
+// 	// читаем аргументы командной строки
+// 	if (argc != 2) {
+// 		return -1;
+// 	} else {
+// 		fname = argv[1];
+// 	};
+
+// 	//-----------------------------------------------------------------------------
+// 	// Читаем хедер
+// 	ih.open(fname + ".hdr");
+
+// 	Header Head(ih);
+
+// 	int32_t freq = Head.fs;            // частота дискретизации
+// 	vector<double> lsbs = Head.lsbs;   // lsbs для всех каналов
+// 	int nchan = Head.leadnum;          // число каналов
+// 	int Len = Head.len;                // длина записи в отсчетах
+
+// 	ih.close();
+
+// 	//-----------------------------------------------------------------------------
+// 	// Читаем бинарь и работаем по точке
+// 	ib.open(fname + ".bin", ios::in | ios::binary);
+
+// 	int SIZE = nchan * sizeof(int32_t);
+
+// 	// для детекторов
+// 	int32_t N = 0.1*freq;  		     // первый множитель - шаг фильтра в секундах (можно задавать извне!!)
+// 	DiffFilter difffilt(N, false);   // Дифференциатор с шагом N
+// 	int32_t diff;          		     // Выход дифференциатора (одна точка)
+
+// 	SumFilter sumfilt(N);   		 // Интегратор с шагом N
+// 	int32_t sum;         			 // Выход интегратора (одна точка)
+
+// 	ToneDetect tonedet(freq);
+// 	int32_t toneres;       			// Выход первичного детектора тонов
+
+// 	// открываем файлы на запись
+// 	otonemkp.open("tonepeaks.txt");
+
+// 	otonemkp << "pos" << endl;
+
+// 	int32_t* readbuf = new int32_t[nchan];
+// 	int k = 0;                     // счетчик строк (также текущий номер отсчета)
+
+// 	int32_t pulse;
+// 	int32_t tone;
+
+// 	int PRES = Head.getlead("Pres");
+// 	int TONE = Head.getlead("Tone");
+
+// 	do {
+// 		ib.read((char*)readbuf, SIZE);
+
+// 		pulse = readbuf[PRES];
+// 		tone = readbuf[TONE];
+
+// 		sum = sumfilt.Exe(pulse); // тахо (задержка 0.1*fs/2)
+// 		diff = difffilt.Exe(sum); // фильтрованное тахо (задержка 0.1*fs/2)
+
+// 		tonedet.Exe(tone);  // результат детектора тонов
+// 		if (tonedet.peakflag)
+// 		{
+// 			otonemkp << tonedet.pos << endl;
+// 		}
+
+// 	} while (!(&ib)->eof());
+
+// 	otonemkp.close();
+// };
 
 // struct test
 // {

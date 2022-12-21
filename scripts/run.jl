@@ -11,4 +11,3 @@ fnames = map(x -> split(x, ".")[end-1], bins)
 for i in fnames run(`D:/INCART/PulseDetectorVer1/build/pulsedetcpp.exe "$dir/$i"`) end
 
 # результат сохраняется в data/*имя базы, как в пути к файлу*/*имя файла, как в пути*_...
-
