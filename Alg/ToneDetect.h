@@ -1,39 +1,48 @@
 #pragma once
 #include <cstring>
 
+#define fnMax(a, b)		( ((a) > (b)) ?  (a) : (b) ) // максимальное из двух значений
+// #define fnAbs(a)		( ((a) < 0) ?  -(a) : (a) ) // модуль
+
+int pow2(int a) // возведение двойки в целую степень
+{
+    int res = 1;
+    if (a!=0)
+    {
+        for (int i=0; i<a; i++)
+        {
+            res*=2;
+        };
+    };
+
+    return res;
+};
+
 // namespace SignalsProcessing
 // {
     struct Tone  // событие: тон 
     {
-    public: 
-
-        // int32_t  pos;            // позиция
-        // int32_t env; // по идее - аплитуда отфильтрованного сигнала, которая идет в алгоритм детекции, но пока тоны не фильтруем и считаем по val
+        int32_t env;              // амплитуда огибающей
         int32_t  val;            // амплитуда
         int32_t  press;          // давление
-        // int32_t  startMarkPos;   // позиция маркера начала (исп. для САД и ДАД как минимум)
+        int32_t pos;
+    };
 
-        //                          // для параметризации
-        // int32_t ins1;
-        // int32_t ins2;
-        // int32_t ins3;
-        // int32_t ins4;
-        // int32_t i1;
-        // int32_t i2;
-        // int32_t W;
-        // int32_t noise;
-        // int32_t snr;
+    struct ToneEvent : public Tone
+    {
+        int32_t bad; 
+        int32_t pos;
+        int32_t startMarkPos;
 
-        // bool bad;                 // вердикт браковщика (true - плохая, false - хорошая)
-
-        // virtual void Reset()
-        // {
-        //     bad = false;
-        //     pos = 0;
-        //     val = 0;
-        //     press = 0;
-        //     startMarkPos = 0;
-        // }
+        Reset()
+        {
+            env = 0;
+            val = 0;
+            press = 0;
+            bad = 0;
+            pos = 0;
+            startMarkPos = 0;
+        }
     };
 
     struct SmartRoundBuff /// общий большой буфер
@@ -57,16 +66,14 @@
         SmartRoundBuff& buf;
 	    int32_t it;
 
-        RBIterator(SmartRoundBuff& _buf, s32 _it = 0)
+        RBIterator(SmartRoundBuff& _buf, int32_t  _it = 0)
         :	 buf(_buf)
             ,it(_it)
         { }
         
         RBIterator(const RBIterator& rhs)
-        : buf(rhs.buf)
-        {
-            this->it = rhs.it;
-        }
+        : buf(rhs.buf), it(rhs.it)
+        { }
         
         void operator--()
         {
@@ -79,25 +86,31 @@
             ++it %= buf.rail;
         }
         
-        // void Set(s32 env, s32 tone, s32 press)
-        void Set(s32 tone, s32 press)
+        // void Set(int32_t  env, int32_t  tone, int32_t  press)
+        void Set(int32_t  env, int32_t  tone, int32_t  press, int32_t pos)
         {
-            // buf.buf[it].env   = env;
+            buf.buf[it].env   = env;
             buf.buf[it].val  = tone;
             buf.buf[it].press = press;
+            buf.buf[it].pos = pos;
         }
         
-        s32& Get()
+        Tone Get()
         {
-            return buf.buf[it]
+            return buf.buf[it];
         }
+
+        bool operator!=(const RBIterator& rhs)
+        {
+            return it != rhs.it;
+        }	
         
         void operator=(const RBIterator& rhs)
         {
-            this->it = rhs.it;
+            it = rhs.it;
         }
         
-        void operator=(s32 _it)
+        void operator=(int32_t  _it)
         {
             if( _it < 0) it = buf.rail + _it; //NOTE(romanm): в теории нужно it %= rail;
             else         it = _it % buf.rail; 
@@ -106,19 +119,20 @@
 
     struct ToneDetect : Tone
     {
-        inline ToneDetect(int32_t _fs) 
+
+        ToneDetect(int32_t _fs) 
         :   Fs(_fs), minDist(0.2*_fs), 
             Wmax(0.1*Fs),
-            noiselen(0.08*Fs),
-            noiseOffset1(0.06*Fs),
-            noiseOffset2(0.06*Fs),
-            buf(Wmax*2 + noiseOffset1 + noiseOffset2 + 3), // by skv: было mindist*2
+            noiselen(0.06*Fs),
+            noiseOffset1(0.04*Fs),
+            noiseOffset2(0.04*Fs),
+            buf(minDist*2+1), 
             current(buf),
             candidPeakPos(buf),
             peakPos(buf)
         { 
-            Reset()
-        }
+            Reset();
+        };
 
         inline Reset()
         {
@@ -130,27 +144,28 @@
             val = 0;
             press = 0;
             cnt = 0;
-        }
+
+            W = 0;
+        };
 
         // Детектор
         int32_t Fs;
         int32_t minDist;
 
-        int32_t LvP = -10000000; // -Inf
+        int32_t LvP = ~0; // -Inf
         int32_t mxCnt = 0;
 
         int32_t minR;
         int32_t LvR; // уровень слежения - разряда
-        int32_t kR = 20*4; // /4
+        int32_t kR = 20; // /4
 
         int32_t LvN;
-        int32_t kN = 100*4; // /4
-        int32_t kaN = 3; // 2.5
+        int32_t kN = 100; // /4
+        int32_t kaN = 2.5*10; // 2.5
 
         int32_t err;
 
         int32_t rCnt; // реальный отсчет, на котором был найден предполагаемый пик
-        int32_t cnt; // Реальный текущий отсчет
 
 
         bool firstflag = false; // true сразу после первой итерации метода Exe
@@ -162,11 +177,12 @@
 		RBIterator candidPeakPos;
 		RBIterator peakPos;
 
-        inline detect(int32_t tone, int32_t press) // детектор
-        {
-            if (!firstflag) {LvR = tone; firstflag = true;} // инициализация LvR первым пришедшим тоном
 
-            current.Set(tone, press); // добавление нового события в буфер
+        inline detect() // детектор
+        {
+            int32_t tone = current.Get().env;
+
+            if (!firstflag) {LvR = tone; firstflag = true;} // инициализация LvR первым пришедшим тоном
 
             peakflag = false;
 
@@ -180,7 +196,6 @@
                 {
                     candidPeakPos = current; // позиция предполагаемого пика в кольцевом буфере
                     rCnt = cnt; // пишем реальную позицию предполагаемого пика
-
                     LvP = LvR;
                     mxCnt = 0;
                 }
@@ -193,7 +208,7 @@
 
             if (mxCnt == minDist)
             {
-                if (LvP > LvN * kaN) // если пик выше по амплитуде, чем шум, и была детекция вниз
+                if (LvP > LvN * (kaN/10)) // если пик выше по амплитуде, чем шум, и была детекция вниз
                 {
                     peakPos = candidPeakPos; // позиция в кольцевом буфере, в которой находимся при подтвержднии предполагаемого пика
                     peakflag = true;
@@ -203,8 +218,7 @@
             }
 
             mxCnt++;
-            cnt++;
-        }
+        };
 
         int32_t Wmax;           // макс полуширина не более
         int32_t noiselen;       // длина участка поиска уровня шума
@@ -215,24 +229,19 @@
         int32_t Lvl = 0;
 	
         //
-        int32_t Wbefore;  
-        int32_t Wafter;  
         int32_t W;   // Ширина
         int32_t snr; //Signal\noise ratio
-        int32_t startMarkPos;       //Позиция в точках относительно метки старта 
-
-        RBIterator it; // итератор для хождения вперёд-назад относительно пика
 
         inline param() // параметризатор (вызывается, когда peakflag = true;)
         {
-            Lvl = peakPos.Get().val/Acoef;
-
+            Lvl = (peakPos.Get().env)/Acoef;
             // поиск ширины
             // ДО пика
-            it = peakPos; // присваиваем итератору значение позиции текущего пика в кольцевом буфере
-            for( int32_t i = 0; i < Wmax; ++i, --it) // и идем по буферу (т.е. во времени) в обратном направлении
+            int32_t wBefore = 0;
+            RBIterator it = peakPos; // присваиваем итератору значение позиции текущего пика в кольцевом буфере
+            for(int i = 0; i < Wmax; ++i, --it) // и идем по буферу (т.е. во времени) в обратном направлении
             {	
-                if( it.Get().val < Lvl )
+                if( it.Get().env < Lvl )
                 {
                     wBefore = i;
                     break;
@@ -240,10 +249,11 @@
             }
             
             // После
+            int32_t wAfter = 0;
             it = peakPos;
-            for(int32_t i = 0; i < Wmax; ++i, ++it)
+            for(int i = 0; i < Wmax; ++i, ++it)
             {		
-                if( it.Get()val. < Lvl )
+                if( it.Get().env < Lvl )
                 {
                     wAfter = i;
                     break;
@@ -252,11 +262,80 @@
             
             W = wAfter + wBefore; // ширина
 
-        }
+            // поиск уровня шума
+        
+            //назад
+            RBIterator ibeg(buf);
+            RBIterator iend(buf);
+            ibeg = peakPos.it - wBefore - 1 - noiseOffset1;
+            iend = ibeg.it - noiselen;
 
-        inline Exe(int32_t tone)
+            //cerr << (iend.Get().pos < ibeg.Get().pos) << " " << (ibeg.Get().pos < peakPos.Get().pos) << " ";
+            
+            int32_t MaxBefore = ibeg.Get().env;
+            while( ibeg != iend )
+            {
+                --ibeg;
+                if( ibeg.Get().env > MaxBefore ) {MaxBefore = ibeg.Get().env;}
+            }
+            
+            //вперед
+            ibeg = peakPos.it + wAfter + 1 + noiseOffset2;
+            iend = ibeg.it + noiselen;
+
+            //cerr << (peakPos.Get().pos < ibeg.Get().pos) << " " << (ibeg.Get().pos < iend.Get().pos) << endl;
+            
+            int32_t MaxAfter = ibeg.Get().env;
+            while( ibeg != iend )
+            {
+                ++ibeg;
+                if( ibeg.Get().env > MaxAfter ) MaxAfter = ibeg.Get().env;
+            }
+            
+            int32_t noise = fnMax(MaxBefore, MaxAfter);
+            if (noise == 0) noise = 1;
+            snr = (peakPos.Get().env*10 / noise);
+            // // cerr << Lvl << " " << MaxBefore << " " << MaxAfter << endl;
+            // if (MaxBefore > Lvl || MaxAfter > Lvl)
+            // {
+            //     cerr << Lvl << " " << MaxBefore << " " << MaxAfter << endl;
+            // }
+        };
+
+        ToneEvent toneEv;
+
+        inline discard() // отбраковщик
         {
-            detect(tone) // детекция
-        }
+            int32_t bad = 0;
+
+            if (peakPos.Get().press < 30000) {bad += pow2(1);}
+            if (snr < 25) {bad += pow2(2);} // слишком много бракует!!!!
+            if (peakPos.Get().env < 300/20) {bad += pow2(3);}
+
+            toneEv.bad = bad;
+            toneEv.val = peakPos.Get().env;
+            toneEv.pos = rCnt;
+            toneEv.press = peakPos.Get().press;
+            toneEv.startMarkPos = startMarkPos;
+        };
+
+        int32_t cnt; // Реальный текущий отсчет
+        int32_t startMarkPos; // Позиция в точках относительно метки старта (старта чего: текущего измерения, накачки/спуска, etc.?)
+
+        inline Exe(int32_t env, int32_t tone, int32_t press)
+        {
+            current.Set(env, tone, press, cnt); // добавление нового события в буфер
+
+            detect(); // детекция
+            if (peakflag) // если детектирован тон
+            {
+                param(); // параметризация
+                discard(); // отбраковщик
+            };
+
+            ++cnt; // инкрементация счетчика точек на входе
+            ++current;
+            ++startMarkPos;
+        };
     };
 // }

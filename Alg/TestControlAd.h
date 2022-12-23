@@ -167,12 +167,12 @@ public:
                 CurrentToneStateMachine[controltone.nextState] -> Enter();
                 if (controltone.InflSuccess)
                 {
-                    cerr << "INFL T " << controltone.inflBeg.press/1000 << " " << controltone.inflEnd.press/1000 << endl;
+                    cerr << "INFL T " << controltone.inflBeg.pos << " " << controltone.inflBeg.press/1000 << " " << controltone.inflEnd.pos << " " << controltone.inflEnd.press/1000 << endl;
                     controltone.InflSuccess = false;
                 }
                 if (controltone.DeflSuccess)
                 {
-                    cerr << "DEFL T " << controltone.deflBeg.press/1000 << " " << controltone.deflEnd.press/1000 << endl;
+                    cerr << "DEFL T " << controltone.deflBeg.pos << " " << controltone.deflBeg.press/1000 << " " << controltone.deflEnd.pos << " " << controltone.deflEnd.press/1000 << endl;
                     controltone.DeflSuccess = false;
                 }
                 // CurrentToneStateMachine[controltone.nextState] -> Enter();

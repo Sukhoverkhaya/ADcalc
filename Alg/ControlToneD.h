@@ -2,27 +2,28 @@
 #pragma once
 
 #include "StateMachine.h"
+#include "ToneDetect.h"
 // #include "TypeLib.h"
 
-struct ToneEvent   // событие: тон (!! нужно привести существующие к этому типу)
-{
-public: 
+// struct ToneEvent   // событие: тон (!! нужно привести существующие к этому типу)
+// {
+// public: 
 
-    bool bad;                 // true - плохая, false - хорошая
-	int32_t  pos;             // позиция
-	int32_t  val;             // амплитуда
-    int32_t  press;           // давление
-	int32_t  startMarkPos;    // позиция маркера начала (исп. для САД и ДАД как минимум)
+//     bool bad;                 // true - плохая, false - хорошая
+// 	int32_t  pos;             // позиция
+// 	int32_t  val;             // амплитуда
+//     int32_t  press;           // давление
+// 	int32_t  startMarkPos;    // позиция маркера начала (исп. для САД и ДАД как минимум)
 	
-	void Reset()
-	{
-		bad = false;
-		pos = 0;
-		val = 0;
-        press = 0;
-		startMarkPos = 0;
-	}
-};	
+// 	void Reset()
+// 	{
+// 		bad = false;
+// 		pos = 0;
+// 		val = 0;
+//         press = 0;
+// 		startMarkPos = 0;
+// 	}
+// };	
 
 // классы ниже прописаны в cpp
 // накачка

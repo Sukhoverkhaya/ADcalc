@@ -7,7 +7,7 @@ enable_testing()
 # include_directories(from webdevice)
 
 add_executable(pulsedetcpp ./Alg/main.cpp)
-# add_executable(pulsedetcpp "./drafts/draft.cpp")
+# add_executable(pulsedetcpp ./Alg/newdetectorstest.cpp)
 
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
 set(CPACK_PROJECT_VERSION ${PROJECT_VERSION})
