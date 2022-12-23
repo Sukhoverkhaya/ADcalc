@@ -1,5 +1,5 @@
 #include "header_rw.h"
-// #include "PulsOnlyDetect.h"
+#include "PulsOnlyDetect.h"
 // #include "ToneOnlyDetect.h"
 #include "DiffFilter.h"
 #include "SumFilter.h"
@@ -58,8 +58,15 @@ int main(int argc, char* argv[]){
 	Filter lpass; lpass.SetLowPass(freq/div);
 	BaselineFilter blfilt;
 
-	// детектор
+	// фильтры для пульсаций
+	Int32_t N = 0.1*freq;  		     // первый множитель - шаг фильтра в секундах (можно задавать извне!!)
+	DiffFilter difffilt(N, false);   // Дифференциатор с шагом N
+	SumFilter sumfilt(N);   		 // Интегратор с шагом N
+
+	// детекторы
 	ToneDetect tonedet(freq/div);
+	SignalsProcessing::PulsOnlyDetect pulsedet;
+	pulsedet.Start(0,0);
 
 	// алгоритм АД
 	ControlTone ctrltone(freq/div); // вызывать эти два конструктора откуда-то из TestControlAD, 
@@ -76,6 +83,9 @@ int main(int argc, char* argv[]){
 		int32_t pulse = readbuf[PRES];
 		int32_t tone = readbuf[TONE];
 
+		int32_t sumpulse = sumfilt.Exe(pulse);
+		int32_t diffpulse = difffilt.Exe(sumpulse);
+
 		int32_t rawTone = dcmlpass.Exe(tone);
 		int32_t smoothTone = hpass.Exe(rawTone);
 		dcm.Exe(smoothTone); // уменьшение частоты
@@ -89,12 +99,19 @@ int main(int argc, char* argv[]){
 
 			ctrlad.Mode(pulse, envfilt);
 			tonedet.Exe(envfilt, smoothTone*1000, pulse);
+			int32_t pulseres = pulsedet.Exe(sumpulse, diffpulse);
+
 			if (tonedet.peakflag)
 			{
 				mkptone << tonedet.toneEv.pos << '	' << tonedet.toneEv.bad << endl;
 				ctrlad.Exe(tonedet.toneEv);
 			}
 			filttone << '	' << tonedet.LvR <<  '	' << tonedet.LvN << '	' << tonedet.LvP << endl;
+
+			if (pulseres!=0)
+			{
+				
+			}
 		}
 		
 		// tonedet.Exe(tone, pulse);  // результат детектора тонов
