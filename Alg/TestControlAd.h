@@ -4,26 +4,14 @@
 
 struct Event
 {
-    int pos;
-    int amp;
+    int32_t pos;
+    int32_t amp;
 };
 
 struct AD
 {
     Event SAD;
     Event DAD;
-};
-
-struct Res
-{
-    int32_t a1;
-    int32_t a2;
-
-    Res(int32_t a, int32_t b)
-    {
-        a1 = a;
-        a2 = b;
-    }
 };
 
 enum ADResult
@@ -44,7 +32,7 @@ public:
 
     AD inflAD;
     AD deflAD;
-    int Fs;
+    int32_t Fs;
 
     ControlTone& controltone;
     ControlPulse& controlpulse;
@@ -59,13 +47,13 @@ public:
     BaseStatePulse** CurrentPulseStateMachine;
 
     WorkMode* mode;
-    int PressMax; // вершина треугольника давления
+    int32_t PressMax; // вершина треугольника давления
 
     ofstream& writead;
 
     ADResult res;
 
-    ControlAd(int _fs, ControlTone& _controltone, ControlPulse& _controlpulse, ofstream& _writead) 
+    ControlAd(int32_t _fs, ControlTone& _controltone, ControlPulse& _controlpulse, ofstream& _writead) 
     : Fs(_fs), controltone(_controltone), controlpulse(_controlpulse), writead(_writead)
     {
         mode = new WorkMode(_fs);
@@ -103,32 +91,28 @@ public:
         ResetPulse();
     };
 
-    void ResetTone()
+    inline void ResetTone()
     {
         stateTone = STT::STATE_0;
-        // notfoundbyTone = true; /// костыль
-        // controltone.Reset();
     };
 
-    void ResetPulse()
+    inline void ResetPulse()
     {
         statePulse = STP::STATE_0;
-        // notfoundbyPulse = true; //// костыль
-        // controlpulse.Reset();
     };
 
-    int Exe(ToneEvent& _toneEv) // вызывается только для событий тонов
+    inline int32_t Exe(ToneEvent& _toneEv) // вызывается только для событий тонов
     {  
         if (controltone.ON) { CurrentToneStateMachine[controltone.nextState] -> NewTone(_toneEv); }
     };
 
-    int Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
+    inline int32_t Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
     {
         if (controlpulse.ON) { CurrentPulseStateMachine[controlpulse.nextState] -> NewPulse(_pulseEv);};
 
     };
 
-    Res Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
+    inline void Mode(int32_t press, int32_t tone) // вызывается для каждой входящей точки сигнала, а не только для событий тонов или пульсаций
     {
         mode -> ModeControl(press, tone);
 
@@ -225,7 +209,5 @@ public:
                 // }
             };
         };
-
-        // return Res(0,0);
-    }
+    };
 };

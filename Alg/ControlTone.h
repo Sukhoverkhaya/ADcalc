@@ -1,14 +1,170 @@
-// (определение некоторых классов и методов, объявленных в ControlTone.h)
-// сделано на основании ControlTone.cpp из firmware, но без обертки для железа
+// на основании ControlTone.h из firmware, но без обертки для железа
+#pragma once
 
-#include "ControlToneD.h"
+#include "StateMachine.h"
+#include "ToneDetect.h"
 #include "arithm.h"
+
+#define PrsSet(c)  (1000*c) 	// установить значение давления // во всем проекте регистры давления в	mmHg*1000 
 
 const int NO_BAD_TILL_PRESS        = 70;  // границы, в которых гарантированно
 const int NO_END_SEARCH_TILL_PRESS = 120; // должно производиться измерение (??)
 
-#define PrsSet(c)  (1000*c) 	// установить значение давления // во всем проекте регистры давления в	mmHg*1000 
+struct STT // Состояния коненчого автомата для тонов
+{
+	enum States
+	{
+		STATE_0 = 0,
+		STATE_1,
+		STATE_2,
+		STATE_3,
+		STATE_SUCCESS,
+		STATE_FAIL,		
+	};
+};
 
+class ControlTone : public ST  // Наследование от ST из StateMachine
+{	
+public:
+
+	const int32_t Fs;               // частота дискретизации
+	STT::States nextState;	        // состояние (одно из States)
+	
+	static const int32_t wait = 3;   // ожидание следующего тона
+	static const int32_t rail = 100; // размер буфера
+	
+	ToneEvent* buf;                  // указатель на первый элемент буфера
+	
+	ToneEvent bufInfl[rail];
+	ToneEvent bufDefl[rail];
+	bool InflSuccess;
+	bool DeflSuccess;
+// _____________________________________
+	int32_t sz;
+	int32_t cursor;
+	int32_t first;
+
+	int32_t ilast;
+	int32_t i1;
+	int32_t i2;
+	int32_t i3s;
+	//
+	int32_t maxLvl;
+	int32_t Nb;
+	//
+	int32_t Pmax;
+
+	// Буфер для вычисления медианы
+	static const int medRail = 5;
+	int32_t medBuf[medRail];
+	int32_t medCursor;
+	//
+// _____________________________________
+	bool stopInfl;
+	bool stopDefl;
+
+	//Results	        // если правильно понимаю, 
+	ToneEvent inflBeg; 	// inflEnd.startMarkPos, inflBeg.startMarkPos
+	ToneEvent inflEnd;	// - САД и ДАД на накачке соответственно (??? ПРЕДПОЛОЖИТЕЛЬНО)
+	ToneEvent deflBeg;	// (аналогично на спуске)
+	ToneEvent deflEnd;
+// _____________________________________
+
+	ControlTone(const int _fs)
+	: Fs(_fs)
+	{
+		buf = bufInfl;
+		stopInfl = false;
+		stopDefl = false;
+		
+		inflBeg.Reset();
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();	
+		
+		Reset();
+	};
+
+	inline void Reset()
+	{
+		nextState    = STT::STATE_0;
+		stateChanged = true;
+			
+		cursor = 0;
+		first  = 0;
+		sz     = 0;
+
+		ilast = 0;
+		i1    = 0;
+		i2    = 0;
+		i3s   = 0;
+
+		maxLvl = 0;
+		Nb      = 0;
+
+		Pmax    = 0;
+
+		medCursor = 0;
+	};
+
+	inline void StartInflST() // начало оценки на накачке
+	{
+		Reset(); // ресет текущего класса
+		On();    // унаследовано от ST (получаем ON = true)
+
+		buf = bufInfl; // буфер на 100 значений ToneEvent
+		stopInfl = false;
+		stopDefl = false;
+
+		InflSuccess = 0;
+		DeflSuccess = 0;
+		
+		inflBeg.Reset(); // ресет класса ToneEvent
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();	
+	}
+
+	inline void StartDeflST() // начало оценки на спуске
+	{
+		Reset(); // ресет текущего класса
+		On();    // унаследовано от ST (получаем ON = true)
+		buf = bufDefl;  // буфер на 100 значений ToneEvent
+	}	
+//______________________________________________
+	
+	inline void ChangeState(STT::States _state) // изменение состояния на одно из перечисления States
+	{
+		nextState   = _state;
+		stateChanged = true;
+	}
+	
+	bool IsStateChanged() // если состояние изменилось, возвращаем true и изменяем маркер переключения состояния на false 
+                            // не вернет тру, пока не будет stateChanged, то есть пока не будет вызван метод ChangeState
+	{
+		if(stateChanged)
+		{
+			stateChanged = false;
+			return true;
+		}
+		
+		return false;
+	}	
+};
+
+struct BaseStateTone
+{
+public:
+    ControlTone& sm;
+
+    BaseStateTone(ControlTone& _sm) : sm(_sm) { } 
+
+    virtual inline void Tick()      { };
+    virtual inline void NewTone(ToneEvent& toneEvent) { };
+    virtual inline void Enter()     { };
+};
+
+//_________________________________________________________________
 // Накачка
 
 // 0. Ждем, пока придет первая хороший тон при давлении выше 30, чтобы переключть в State1
@@ -18,7 +174,7 @@ struct StateToneInfl0 : BaseStateTone // наследуем от BaseStateTone
     // запускаем конструктор класса BaseStateTone c тем же элементом на входе
 	StateToneInfl0(ControlTone& sm) : BaseStateTone(sm) {}
 	
-	void NewTone(ToneEvent& toneEvent) // пришло новое событие тон
+	inline void NewTone(ToneEvent& toneEvent) // пришло новое событие тон
 	{
 		sm.buf[sm.cursor] = toneEvent;
 		
@@ -32,8 +188,6 @@ struct StateToneInfl0 : BaseStateTone // наследуем от BaseStateTone
 		}
 		
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;
-		
 	}
 	
 };
@@ -45,7 +199,7 @@ struct StateToneInfl1 : BaseStateTone // начинаем копить хоро�
 {
 	StateToneInfl1(ControlTone& sm) : BaseStateTone(sm) {}
 								
-	void NewTone(ToneEvent& toneEvent) 
+	inline void NewTone(ToneEvent& toneEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = toneEvent;		
@@ -54,9 +208,7 @@ struct StateToneInfl1 : BaseStateTone // начинаем копить хоро�
 		if( sm.buf[sm.cursor].bad )
 		{
 			//Двигаем буфер
-			++sm.cursor %= sm.rail;
-			// ++sm.sz;				
-			
+			++sm.cursor %= sm.rail;		
 			return;
 		}
 			
@@ -96,8 +248,7 @@ struct StateToneInfl1 : BaseStateTone // начинаем копить хоро�
 		sm.i1 = sm.cursor;
 		
 		//Двигаем буфер
-		++sm.cursor %= sm.rail;
-		// ++sm.sz;			
+		++sm.cursor %= sm.rail;		
 	}
 	
 };	
@@ -115,17 +266,13 @@ struct StateToneInfl2 : BaseStateTone
 		,maxBadTime(sm.Fs*5) 
 		{}
 				
-	void Enter()
+	inline void Enter()
 	{
 		timer = 0;
 		badTime = 0;
-		//МЕТКА
-		// _MARK( createLowBoundary(ADType_Tone, ADDir_INFL); )
-        // return 1001;
-		//МЕТКА
 	}
 		
-	void NewTone(ToneEvent& toneEvent) 
+	inline void NewTone(ToneEvent& toneEvent) 
 	{
 		// Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = toneEvent;
@@ -170,17 +317,14 @@ struct StateToneInfl2 : BaseStateTone
 			
 		//Двигаем буфер
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;
 	}
 	
-	void Tick() // пока подаем PrsMsr снаружи
+	inline void Tick() // пока подаем PrsMsr снаружи
 	{
 		timer++;
-		// cerr << timer << endl;
 		if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 
 		if( timer > sm.wait * sm.Fs )
-		// if((sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > (sm.wait * sm.Fs))
 		{
 			timer = 0;	
 			sm.inflEnd = sm.buf[sm.ilast];
@@ -203,20 +347,9 @@ struct StateToneInflSuccess : BaseStateTone
 {
 	StateToneInflSuccess(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Enter()
-	{
-		//МЕТКА
-		// _MARK( createHighBoundary(ADType_Tone, ADDir_INFL); )
-        // return 10002;
-		//МЕТКА
-		//sm.savedSzInfl = sm.sz;
-		sm.InflSuccess = true;
-	}				
+	inline void Enter() {sm.InflSuccess = true;}				
 		
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick() {sm.Off();}
 	
 };
 
@@ -224,10 +357,7 @@ struct StateToneInflFail : BaseStateTone
 {
 	StateToneInflFail(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick() {sm.Off();}
 	
 };
 
@@ -236,18 +366,11 @@ struct StateToneInflFail : BaseStateTone
 struct StateToneDefl0 : BaseStateTone
 {
 	StateToneDefl0(ControlTone& sm) : BaseStateTone(sm) {}
-				
-	void Enter() 
-	{
-		// sm.Pmax = Prs;
-	}
 		
-	void NewTone(ToneEvent& toneEvent) 
+	inline void NewTone(ToneEvent& toneEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = toneEvent;
-
-		// cerr << toneEvent.press << " " << sm.Pmax - PrsSet(5) << endl;
 		
 		if( toneEvent.press < sm.Pmax - PrsSet(5) && !sm.buf[sm.cursor].bad)
 		{		
@@ -259,7 +382,6 @@ struct StateToneDefl0 : BaseStateTone
 		
 		//Двигаем буфер
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;		
 	}
 		
 };	
@@ -268,15 +390,7 @@ struct StateToneDefl1 : BaseStateTone
 {
 	StateToneDefl1(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Enter()
-	{	
-		//МЕТКА
-		// _MARK( createHighBoundary(ADType_Tone, ADDir_DEFL); )
-        // return 10003;
-		//МЕТКА
-	}
-		
-	void NewTone(ToneEvent& toneEvent) 
+	inline void NewTone(ToneEvent& toneEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = toneEvent;			
@@ -285,8 +399,7 @@ struct StateToneDefl1 : BaseStateTone
 		if( sm.buf[sm.cursor].bad )
 		{
 			//Двигаем буфер
-			++sm.cursor %= sm.rail;
-			// ++sm.sz;				
+			++sm.cursor %= sm.rail;			
 			
 			return;
 		}
@@ -329,8 +442,7 @@ struct StateToneDefl1 : BaseStateTone
 		
 		
 		//Двигаем буфер
-		++sm.cursor %= sm.rail;
-		// ++sm.sz;			
+		++sm.cursor %= sm.rail;		
 
 	}
 		
@@ -349,17 +461,13 @@ struct StateToneDefl2 : BaseStateTone
 		,maxBadTime(sm.Fs*5) 
 		{}
 		
-	void Enter()
+	inline void Enter()
 	{
 		timer = 0;
 		badTime = 0;		
-//		//МЕТКА
-//		_MARK( createHighBoundary(ADType_Tone, ADDir_DEFL); )
-        // return 1004;
-//		//МЕТКА
 	}
 				
-	void NewTone(ToneEvent& toneEvent) 
+	inline void NewTone(ToneEvent& toneEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = toneEvent;
@@ -405,11 +513,10 @@ struct StateToneDefl2 : BaseStateTone
 		// ++sm.sz;
 	}
 	
-	void Tick()
+	inline void Tick()
 	{
 		timer++;
 		if( timer > sm.wait * sm.Fs )
-		// if((sm.buf[sm.cursor].pos - sm.buf[sm.i1].pos) > (sm.wait * sm.Fs))
 		{
 			timer = 0;	
 			sm.deflEnd = sm.buf[sm.ilast];
@@ -432,27 +539,18 @@ struct StateToneDefl3 : BaseStateTone
 {
 	StateToneDefl3(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Enter()
-	{
-		//МЕТКА
-		// _MARK( createLowBoundary(ADType_Tone, ADDir_DEFL); )
-        // return 1005;
-		//МЕТКА
-		//sm.savedSzDefl = sm.sz;
-		sm.DeflSuccess = true;
-	}		
+	inline void Enter() { sm.DeflSuccess = true;}		
 		
-	void Tick()
+	inline void Tick()
 	{
 		if( sm.deflEnd.press - PrsSet(10) > sm.buf[sm.cursor].press ||  PrsSet(30) > sm.buf[sm.cursor].press ) //?
 		{
-			//sm.Pmax = GET_SERVICE(BpmMediator)->PrsMsr;
 			sm.ChangeState(STT::STATE_SUCCESS);
 			sm.stopDefl = true;
 		}
 	}
 				
-	void NewTone(ToneEvent& ToneEvent) 
+	inline void NewTone(ToneEvent& ToneEvent) 
 	{ 
 		//Добавляем пульсацию в буфер
 		if( sm.cursor >= sm.rail ) return;
@@ -467,10 +565,7 @@ struct StateToneDeflSuccess : BaseStateTone
 {
 	StateToneDeflSuccess(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick() {sm.Off();}
 	
 };
 
@@ -478,112 +573,10 @@ struct StateToneDeflFail : BaseStateTone
 {
 	StateToneDeflFail(ControlTone& sm) : BaseStateTone(sm) {}
 		
-	void Tick()
+	inline void Tick()
 	{
 		sm.stopDefl = true;
 		sm.Off();
 	}
 	
 };
-
-
-//-----------------------------------------------------------------------------
-ControlTone::
-ControlTone(const int _fs)
-: Fs(_fs)
-{
-// 	//State Infl
-// 	stateArrayInfl[STT::STATE_0] =       new StateToneInfl0(*this);
-// 	stateArrayInfl[STT::STATE_1] =       new StateToneInfl1(*this);
-// 	stateArrayInfl[STT::STATE_2] =       new StateToneInfl2(*this);	
-// //	stateArrayInfl[STT::STATE_3] =       new StateToneInfl3(*this);
-// 	stateArrayInfl[STT::STATE_SUCCESS] = new StateToneInflSuccess(*this);
-// 	stateArrayInfl[STT::STATE_FAIL] =    new StateToneInflFail(*this);
-	                                             
-// 	//State Defl                                 
-// 	stateArrayDefl[STT::STATE_0] =       new StateToneDefl0(*this);
-// 	stateArrayDefl[STT::STATE_1] =       new StateToneDefl1(*this);
-// 	stateArrayDefl[STT::STATE_2] =       new StateToneDefl2(*this);	
-// 	stateArrayDefl[STT::STATE_3] =       new StateToneDefl3(*this);
-// 	stateArrayDefl[STT::STATE_SUCCESS] = new StateToneDeflSuccess(*this);
-// 	stateArrayDefl[STT::STATE_FAIL] =    new StateToneDeflFail(*this);
-	
-
-	// currentStateMachine = stateArrayInfl;
-	buf = bufInfl;
-	stopInfl = false;
-	stopDefl = false;
-	
-	inflBeg.Reset();
-	inflEnd.Reset();
-	deflBeg.Reset();
-	deflEnd.Reset();	
-	
-	Reset();
-}
-//-----------------------------------------------------------------------------
-void ControlTone::Reset()
-{
-    // currentState = STT::STATE_0;
-  nextState    = STT::STATE_0;
-  stateChanged = true;
-	
-	//Буфер событий тонов
-	cursor = 0;
-	first  = 0;
-	sz     = 0;
-	
-	//
-//	inflBeg.Reset();
-//	inflEnd.Reset();
-//	deflBeg.Reset();
-//	deflEnd.Reset();
-	//
-	ilast = 0;
-	i1    = 0;
-	i2    = 0;
-	i3s   = 0;
-	//
-	maxLvl = 0;
-	Nb      = 0;
-	//
-	Pmax    = 0;
-
-	medCursor = 0;
-}
-//-----------------------------------------------------------------------------
-// void ControlTone::EventNewTone(ToneEvent& toneEvent)
-// {
-// 	if(!ON) return;
-	
-// 	if( IsStateChanged() ) 
-// 	{
-// 		currentStateMachine[currentState]->Exit();
-// 		currentState = nextState;
-// 		currentStateMachine[currentState]->Enter();
-// 	}
-	
-// 	currentStateMachine[currentState]->NewTone(toneEvent);
-// }
-// //-----------------------------------------------------------------------------
-// void ControlTone::EventTick()
-// {
-// 	if(!ON) return;
-	
-// 	if( IsStateChanged() ) 
-// 	{
-// 		currentStateMachine[currentState]->Exit();
-// 		currentState = nextState;
-// 		createDebugMarkStepTone(currentState);
-// 		currentStateMachine[currentState]->Enter();
-// 	}	
-	
-// 	currentStateMachine[currentState]->Tick();
-// }
-// //-----------------------------------------------------------------------------
-// //-----------------------------------------------------------------------------
-
-
-
-
-
