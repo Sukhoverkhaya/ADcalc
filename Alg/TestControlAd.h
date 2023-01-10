@@ -61,13 +61,12 @@ public:
     WorkMode* mode;
     int PressMax; // вершина треугольника давления
 
-    // bool notfoundbyTone;
-    // bool notfoundbyPulse;
+    ofstream& writead;
 
     ADResult res;
 
-    ControlAd(int _fs, ControlTone& _controltone, ControlPulse& _controlpulse) 
-    : Fs(_fs), controltone(_controltone), controlpulse(_controlpulse)
+    ControlAd(int _fs, ControlTone& _controltone, ControlPulse& _controlpulse, ofstream& _writead) 
+    : Fs(_fs), controltone(_controltone), controlpulse(_controlpulse), writead(_writead)
     {
         mode = new WorkMode(_fs);
         PressMax = 0;
@@ -169,11 +168,13 @@ public:
                 {
                     cerr << "INFL T " << controltone.inflBeg.pos << " " << controltone.inflBeg.press/1000 << " " << controltone.inflEnd.pos << " " << controltone.inflEnd.press/1000 << endl;
                     controltone.InflSuccess = false;
+                    writead << controltone.inflBeg.pos << '	' << controltone.inflBeg.press << '	' << controltone.inflEnd.pos << '	' << controltone.inflEnd.press << endl;
                 }
                 if (controltone.DeflSuccess)
                 {
                     cerr << "DEFL T " << controltone.deflBeg.pos << " " << controltone.deflBeg.press/1000 << " " << controltone.deflEnd.pos << " " << controltone.deflEnd.press/1000 << endl;
                     controltone.DeflSuccess = false;
+                    writead << controltone.deflBeg.pos << '	' << controltone.deflBeg.press << '	' << controltone.deflEnd.pos << '	' << controltone.deflEnd.press << endl;
                 }
                 // CurrentToneStateMachine[controltone.nextState] -> Enter();
                 // if (controltone.DeflSuccess)

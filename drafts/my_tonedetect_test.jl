@@ -14,46 +14,82 @@ vseg = get_valid_segments(Pres, Tone, 15, -1e7, 30*fs)
 
 b = 3; ## номер валидного участка (одного измерения)
 
-seg = Tone[vseg[b].ibeg:vseg[b].iend]
-plot(seg)
+# seg = Tone[vseg[b].ibeg:vseg[b].iend]
+# plot(seg)
+
+# ПРОВЕРКА ДЛЯ ТОНОВ
 
 ## ФИЛЬТРЫ ##
-fname = "build/filttone.txt"
-tone = Int32[]; rawtone = Int32[];
-smoothTone = Int32[];   smth_dcm_abs = Int32[]; 
-env = Int32[];  envfilt = Int32[]; 
-LvR = Int32[]; LvN = Int32[]; LvP = Int32[];
-open(fname) do file
-    while !eof(file)
+fname = "data/KT 07 AD ECG/PX11321102817293_filttone.txt"
+
+function readfilt(fname)
+    colN = 0
+    rowN = 0
+    names = String[]
+    open(fname) do file
+        # зачитываем  имена столбцов
         line = readline(file)
-        vals = map(x -> parse(Int32, x), split(line, '	'))
-        push!(tone, vals[1]); push!(rawtone, vals[2]);
-        push!(smoothTone, vals[3]); push!(smth_dcm_abs, vals[4]); 
-        push!(env, vals[5]); push!(envfilt, vals[6]); 
-        push!(LvR, vals[7]); push!(LvN, vals[8]); push!(LvP, vals[9]);
+        names = split(line, '	')
+        colN = length(names) # число столбцов в файле
+        
+        # считаем кол-во строк в файле
+        while !eof(file) 
+            readline(file)
+            rowN += 1 
+        end
     end
+
+    # читаем файл в матрицу
+    data = Matrix{Int32}(undef, rowN, colN)
+    open(fname) do file
+        line = readline(file) # пропускаем заголовочную строку
+        i = 1;
+        while !eof(file) 
+            line = readline(file)
+            subs = split(line, '	')
+            vals = map(x -> parse(Int32, x), subs)
+            data[i,:] = vals
+            i += 1
+        end
+    end
+
+    signals = [data[:, col] for col in 1:colN] |> Tuple
+    symb_names = Symbol.(names) |> Tuple
+
+    res = NamedTuple{symb_names}(signals)
+
+    return res
 end
 
-k = (fs == 1000) ? 4 : 1 # к-т децимации
+filtered = readfilt(fname)
 
-plot(tone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(rawtone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot(smoothTone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(smth_dcm_abs[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot(env[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+k = (fs == 1000) ? 8 : 2 # к-т децимации
+
+# plot(filtered.tone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+# plot!(filtered.rawTone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+# plot(filtered.smoothTone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+# plot!(filtered.smth_dcm_abs[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+# plot(filtered.env[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+# plot!(filtered.envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
 
 #### РАЗМЕТКА ###
-fname = "build/tonepeaks.txt"
+fname = "data/KT 07 AD ECG/PX11321102817293_tone_mkp.txt"
 
-mkp = []
-open(fname) do file
-    while !eof(file)
+function readmkp(fname)
+    mkp = []
+    open(fname) do file
         line = readline(file)
-        val = map(x -> parse(Int32, x), split(line, '	'))
-        push!(mkp, (pos = val[1], bad = val[2]));
+        while !eof(file)
+            line = readline(file)
+            val = map(x -> parse(Int32, x), split(line, '	'))
+            push!(mkp, (pos = val[1], bad = val[2]));
+        end
     end
+
+    return mkp
 end
+
+mkp = readmkp(fname)
 
 vmkp = filter(x -> x.pos > floor(Int, vseg[b].ibeg/k) && x.pos < floor(Int, vseg[b].iend/k), mkp)
 vpeaks = map(x -> x.pos - floor(Int, vseg[b].ibeg/k), vmkp)
@@ -61,10 +97,10 @@ vbad = map(x -> x.bad, vmkp)
 badpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad!=0, vmkp))
 zerobadpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad==0, vmkp))
 
-segenv = envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvR = LvR[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvN = LvN[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvP = LvP[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segenv = filtered.envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvR = filtered.LvR[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvN = filtered.LvN[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvP = filtered.LvP[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
 
 plot(segenv, label = "sig")
 plot!(segLvR, label = "LvR")
@@ -73,21 +109,46 @@ plot!(segLvP, label = "LvP")
 xlims!(6000, 12000)
 ylims!(-1000, 10000)
 
-# segenv[badpeaks[18]]
-# plot!([0, 16000], [segenv[badpeaks[18]], segenv[badpeaks[18]]]./3)
-# # i1 = vpeaks[39] - 26
-# i2 = i1 - 20
-# maximum(segenv[i2:i1])
+scatter!(zerobadpeaks, segenv[zerobadpeaks])
+scatter!(badpeaks, segenv[badpeaks])
 
-# plot!([i1,i1],[-1000, 5000])
-# plot!([i2,i2],[-1000, 5000])
-# plot!([7500, 10000],[segenv[vpeaks[39]]/3, segenv[vpeaks[39]]/3])
+# ПРОВЕРКА ДЛЯ ПУЛЬСАЦИЙ
+
+## ФИЛЬТРЫ ##
+fname = "data/KT 07 AD ECG/PX11321102817293_filtpulse.txt"
+
+filtered = readfilt(fname)
+
+plot(filtered.pulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot!(filtered.pressDcm[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot!(filtered.smoothPulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot(filtered.basePulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot!(filtered.tch[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+
+#### РАЗМЕТКА ###
+fname = "data/KT 07 AD ECG/PX11321102817293_pulse_mkp.txt"
+
+mkp = readmkp(fname)
+
+vmkp = filter(x -> x.pos > floor(Int, vseg[b].ibeg/k) && x.pos < floor(Int, vseg[b].iend/k), mkp)
+vpeaks = map(x -> x.pos - floor(Int, vseg[b].ibeg/k), vmkp)
+vbad = map(x -> x.bad, vmkp)
+badpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad!=0, vmkp))
+zerobadpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad==0, vmkp))
+
+segenv = filtered.basePulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvR = filtered.LvR[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvZ = filtered.LvZ[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segLvP = filtered.LvP[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+
+plot(segenv, label = "sig")
+plot!(segLvR, label = "LvR")
+plot!(segLvZ, label = "LvZ")
+plot!(segLvP, label = "LvP")
+# xlims!(2000, 6000)
+ylims!(-2000, 5000)
 
 scatter!(zerobadpeaks, segenv[zerobadpeaks])
 scatter!(badpeaks, segenv[badpeaks])
 
-ad1 = 118669 - floor(Int, vseg[b].ibeg/k)
-ad2 = 126095 - floor(Int, vseg[b].ibeg/k)
-
-plot!([ad1, ad1], [-1000, 7500])
-plot!([ad2, ad2], [-1000, 7500])
+filter(x -> x!=0, vbad)

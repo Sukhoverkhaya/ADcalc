@@ -2,30 +2,31 @@
 #pragma once
 
 #include "StateMachine.h"
+#include "PulseDetect.h"
 
-struct PulseEvent
-{
-public:
+// struct PulseEvent
+// {
+// public:
 
-	bool bad;
-	int32_t  pos;
-	int32_t  val;
-	int32_t  range;
-	int32_t  press;
-	int32_t  imax;
-	int32_t  startMarkPos;
+// 	bool bad;
+// 	int32_t  pos;
+// 	int32_t  val;
+// 	int32_t  range;
+// 	int32_t  press;
+// 	int32_t  imax;
+// 	int32_t  startMarkPos;
 	
-	void Reset()
-	{
-		bad = false;
-		pos = 0;
-		val = 0;
-		range = 0;
-        press = 0;
-		imax  = 0;
-		startMarkPos = 0;
-	}
-};	
+// 	void Reset()
+// 	{
+// 		bad = false;
+// 		pos = 0;
+// 		val = 0;
+// 		range = 0;
+//         press = 0;
+// 		imax  = 0;
+// 		startMarkPos = 0;
+// 	}
+// };	
 
 struct STP // Состояния для автоматов пульсаций
 {

@@ -2,29 +2,12 @@
 // сделано на основании ControlTone.cpp из firmware, но без обертки для железа
 
 #include "ControlToneD.h"
+#include "arithm.h"
 
 const int NO_BAD_TILL_PRESS        = 70;  // границы, в которых гарантированно
 const int NO_END_SEARCH_TILL_PRESS = 120; // должно производиться измерение (??)
 
 #define PrsSet(c)  (1000*c) 	// установить значение давления // во всем проекте регистры давления в	mmHg*1000 
-
-#define fnMax(a, b)		( ((a) > (b)) ?  (a) : (b) ) // максимальное из двух значений
-
-int32_t med3(int32_t* buf)       // поиск медианого значения в буфере из 3-х элементов
-{
-	int32_t& a = buf[0];
-	int32_t& b = buf[1];
-	int32_t& c = buf[2];
-	
-	if(a > b && a < c) return a;
-	if(a < b && a > c) return a;
-	
-	if(b > a && b < c) return b;
-	if(b < a && b > c) return b;
-	
-	return c;
-};
-
 
 // Накачка
 

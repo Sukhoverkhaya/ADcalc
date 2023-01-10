@@ -1,22 +1,6 @@
 #pragma once
 #include <cstring>
-
-#define fnMax(a, b)		( ((a) > (b)) ?  (a) : (b) ) // максимальное из двух значений
-// #define fnAbs(a)		( ((a) < 0) ?  -(a) : (a) ) // модуль
-
-int pow2(int a) // возведение двойки в целую степень
-{
-    int res = 1;
-    if (a!=0)
-    {
-        for (int i=0; i<a; i++)
-        {
-            res*=2;
-        };
-    };
-
-    return res;
-};
+#include "arithm.h"
 
 // namespace SignalsProcessing
 // {
@@ -28,7 +12,7 @@ int pow2(int a) // возведение двойки в целую степен�
         int32_t pos;
     };
 
-    struct ToneEvent : public Tone
+    struct ToneEvent : Tone
     {
         int32_t bad; 
         int32_t pos;

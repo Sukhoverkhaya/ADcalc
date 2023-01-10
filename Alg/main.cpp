@@ -1,20 +1,16 @@
 #include "header_rw.h"
-#include "PulsOnlyDetect.h"
-// #include "ToneOnlyDetect.h"
-#include "DiffFilter.h"
-#include "SumFilter.h"
 #include "badsplit.h"
 #include "Filters.h"
 
 #include "TestControlAd.h"
 #include "ToneDetect.h"
-// #include "estimate_AD_tone.h"
+#include "PulseDetect.h"
 
 int main(int argc, char* argv[]){
 
 	string fname;     // имена читаемых бинаря и его хедера (совпадают)
 	ifstream ih, ib;  // потоки на чтение бинаря и хедера
-	ofstream filttone, mkptone; // потоки на запись
+	ofstream filttone, filtpulse, mkptone, mkppulse, admkp; // потоки на запись
 
 	//-----------------------------------------------------------------------------
 	// читаем аргументы командной строки
@@ -44,38 +40,60 @@ int main(int argc, char* argv[]){
 	int SIZE = nchan * sizeof(int32_t);
 
 	int32_t* readbuf = new int32_t[nchan];
-	// int32_t k = 1;
+	int32_t k = 1; // счетчик прочитанных точек
 
 	int PRES = Head.getlead("Pres"); // номер канала
 	int TONE = Head.getlead("Tone");
 
 	// фильтры для тонов
-	int32_t div = (freq==1000) ? 4 : 1; // !!!! к-т децимации (прореживания) нужно учитывать и в детекторах (при 1000 Гц равен 4)
+	int32_t div = (freq==1000) ? 8 : 2; // !!!! к-т децимации (прореживания) нужно учитывать и в детекторах (при 1000 Гц равен 4)
 
 	Decimator dcm(div);
-	Filter dcmlpass; dcmlpass.SetDecimLowpass(freq);
-	Filter hpass; hpass.SetHighPass(freq);
-	Filter lpass; lpass.SetLowPass(freq/div);
+	FiltPack opt; // набор опций (к-тов) разных фильтров
+
+	Filter dcmlpass(freq); dcmlpass.SetOptions(opt.butter_2_60_low);
+	Filter hpass(freq); hpass.SetOptions(opt.butter_2_30_high);
+	Filter lpass(freq/div); lpass.SetOptions(opt.butter_2_10_low);
+
 	BaselineFilter blfilt;
 
 	// фильтры для пульсаций
-	Int32_t N = 0.1*freq;  		     // первый множитель - шаг фильтра в секундах (можно задавать извне!!)
-	DiffFilter difffilt(N, false);   // Дифференциатор с шагом N
-	SumFilter sumfilt(N);   		 // Интегратор с шагом N
+	Filter dcmlow(freq); dcmlow.SetOptions(opt.butter_2_20_low);
+	Filter pulseLow(freq/div); pulseLow.SetOptions(opt.butter_2_10_low);
+	Filter pulseHigh(freq/div); pulseHigh.SetOptions(opt.butter_2_03_high);
+	DiffFilter tacho(freq/div, div);
 
 	// детекторы
 	ToneDetect tonedet(freq/div);
-	SignalsProcessing::PulsOnlyDetect pulsedet;
-	pulsedet.Start(0,0);
+	PulseDetect pulsedet(freq/div, 32);
 
 	// алгоритм АД
 	ControlTone ctrltone(freq/div); // вызывать эти два конструктора откуда-то из TestControlAD, 
 	ControlPulse ctrlpulse(freq/div); // а не так вот внешне (ибо не исп.)
-	ControlAd ctrlad(freq/div, ctrltone, ctrlpulse);
+	ControlAd ctrlad(freq/div, ctrltone, ctrlpulse, admkp);
 
-	// потоки на запись всех этапов филтрации тонов
-	filttone.open("filttone.txt");
-	mkptone.open("tonepeaks.txt");
+	// потоки на запись всех этапов фильтрации и разметки
+	vector<string> splitpath = badsplit(fname,'/');
+	string nameonly = splitpath[splitpath.size()-1]; // последний элемент (имя файла)
+	string basename = splitpath[splitpath.size()-2]; // предпоследний элемент (имя базы)
+
+	string fold = "D:/INCART/PulseDetectorVer1/data/" + basename + '/'; // путь на сохранение разметки
+
+	filttone.open(fold + nameonly + "_filttone.txt");
+	filtpulse.open(fold + nameonly + "_filtpulse.txt");
+	mkptone.open(fold + nameonly + "_tone_mkp.txt");
+	mkppulse.open(fold + nameonly + "_pulse_mkp.txt");
+	admkp.open(fold + nameonly + "_ad_mkp.txt");
+
+	filttone << "tone" << '	' << "rawTone" << '	' << "smoothTone" << '	' << "smth_dcm_abs" << '	' << "env" << '	' << "envfilt";
+	filttone << '	' << "LvR" <<  '	' << "LvN" << '	' << "LvP" << endl;
+	
+	filtpulse << "pulse" << '	' << "pressDcm" << '	' << "smoothPulse" << '	' << "basePulse" << '	' << "tch";
+	filtpulse << '	' << "LvR" << '	' << "LvZ" << '	' << "LvP" << endl;
+	
+	mkptone << "pos" << '	' << "bad" << endl;
+	mkppulse << "pos" << '	' << "bad" << endl;
+	admkp << "pos" << '	' << "amp" << '	' << "pos" << '	' << "amp" << endl;
 
 	do {
 		ib.read((char*)readbuf, SIZE);
@@ -83,23 +101,31 @@ int main(int argc, char* argv[]){
 		int32_t pulse = readbuf[PRES];
 		int32_t tone = readbuf[TONE];
 
-		int32_t sumpulse = sumfilt.Exe(pulse);
-		int32_t diffpulse = difffilt.Exe(sumpulse);
+		ctrlad.Mode(pulse, tone);
 
 		int32_t rawTone = dcmlpass.Exe(tone);
 		int32_t smoothTone = hpass.Exe(rawTone);
+
+		int32_t pressDcm = dcmlow.Exe(pulse);
+
 		dcm.Exe(smoothTone); // уменьшение частоты
-		if (dcm.rdyFlag)     // в div раз
+		if (dcm.rdyFlag)     // в div раз (получаем 125 Гц)
 		{
+			// фильтруем тоны
 			int32_t smth_dcm_abs = fnAbs(dcm.out);
 			int32_t env = lpass.Exe(smth_dcm_abs);
 			int32_t envfilt = blfilt.Exe(env);	
 
-			filttone << tone << '	' << rawTone << '	' << smoothTone << '	' << smth_dcm_abs << '	' << env << '	' << envfilt;
+			// фильтруем пульсации
+			int32_t smoothPulse = pulseLow.Exe(pressDcm);
+			int32_t basePulse = pulseHigh.Exe(smoothPulse);
+			int32_t tch = tacho.Exe(basePulse);
 
-			ctrlad.Mode(pulse, envfilt);
+			filttone << tone << '	' << rawTone << '	' << smoothTone << '	' << smth_dcm_abs << '	' << env << '	' << envfilt;
+			filtpulse << pulse << '	' << pressDcm << '	' << smoothPulse << '	' << basePulse << '	' << tch;
+
 			tonedet.Exe(envfilt, smoothTone*1000, pulse);
-			int32_t pulseres = pulsedet.Exe(sumpulse, diffpulse);
+			pulsedet.Exe(tch*10, smoothPulse, basePulse);
 
 			if (tonedet.peakflag)
 			{
@@ -108,26 +134,45 @@ int main(int argc, char* argv[]){
 			}
 			filttone << '	' << tonedet.LvR <<  '	' << tonedet.LvN << '	' << tonedet.LvP << endl;
 
-			if (pulseres!=0)
+			if (pulsedet.e.eventRdy)
 			{
-				
+				mkppulse << pulsedet.pulse.pos << '	' << pulsedet.pulse.bad << endl;
+				ctrlad.Exe(pulsedet.pulse);
 			}
-		}
-		
-		// tonedet.Exe(tone, pulse);  // результат детектора тонов
-		// if (tonedet.peakflag)
+			filtpulse << '	' << pulsedet.LvR << '	' << pulsedet.LvZ << '	' << pulsedet.LvP << endl;
+		};
+
+		// note: если нужны конвертация в физ величину и калибровка, добавляем отдельно децимацию до 250 Гц (перед децимацией до 125),
+		// в противном случае работаем там же, где и с тонами
+
+		// int32_t pressDcm = dcmlow.Exe(pulse);
+
+		// if (pulsedecimcnt250 == stoppulsedecim250) // (получаем 250 Гц)
 		// {
-		// 	// cerr << tonedet.toneEv.bad << endl;
-		// 	// if (!tonedet.toneEv.bad)
-		// 	// {
-		// 	// 	++k;
-		// 	// }
+		// 	// конвертация в физ. величину (??)
+
+		// 	// калибровка (в соотв. с таблицей калибровки (надо ли делать??))
+
+		// 	// выделение пульсаций
+			
+		// 	if (pulsedecimcnt125 == stoppulsedecim125) // если пункты выше не будут выполнятся, то это вложенное условие не нужно - сделать децимацию сразу до 125 Гц
+		// 	                                                                                                                        // а лучше работать с пульсациями там же, где с тонами, т.к. та же частота
+		// 	{
+
+		// 	}
+
+		// 	pulsedecimcnt250 = 0;
 		// }
-		
+		// pulsedecimcnt250++;
+		++k;
 	} while (!(&ib)->eof());
+
 	ib.close();
 	filttone.close();
+	filtpulse.close();
 	mkptone.close();
+	mkppulse.close();
+	admkp.close();
 
 	//-----------------------------------------------------------------------------
 };

@@ -3,37 +3,10 @@
 #pragma once
 
 #include "ControlPulseD.h"
+#include "arithm.h"
 
 // const int NO_BAD_TILL_PRESS        = 70;
 // const int NO_END_SEARCH_TILL_PRESS = 120;
-
-#define fnAbs(a)  		( ((a) <  0 ) ? -(a) : (a) )
-
-int32_t med5(int32_t* buf) // Медиана из 5 элементов, буфер на 5 элементов
-{
-	int32_t res = 0;
-	
-	for( int32_t i = 0; i < 5; ++i)
-	{
-		int32_t thr = 0;
-		int32_t s   = 0;
-		for( int32_t j = 0; j < 5; ++j)
-		{
-			if( i == j) continue;
-			
-			if( buf[i] > buf[j] )      {s++;}
-			else if( buf[i] < buf[j] ) {s--;}
-			else                       {thr++;};
-			
-			if( fnAbs(s) <= thr )
-			{
-				res = buf[i];
-			}			
-		}
-	}
-	
-	return res;
-};
 
 struct StatePulseInfl0 : BaseStatePulse
 {

@@ -9,6 +9,13 @@ struct FiltOptions
     int32_t kf;  //коэффициент компенсации амплитуды == a[0]/kf 
 };
 
+enum FsOpt // читобы к-ты фильтров с одинаковыми характеристиками выбирались в зависимости от частоты дискретизации
+{
+    Hz125 = 0,
+    Hz250 = 1,
+    Hz1000 = 2,
+};
+
 
 // если исходить из того, что к-ты взяты из кода для прибора,
 // который, судя по всему, работает с частотой дискретизации 1000 ГЦ,
@@ -19,29 +26,115 @@ struct FiltOptions
 //                   highpass - butter high 2 порядка от 30 Гц
 //                   lowpass - butter low 2 порядка до 10 Гц
 
-const FiltOptions decimlowpass_opt_1000 = {3,   6,  3,
+// butter low 2 порядка до 60 Гц
+const FiltOptions decimlowpass_opt_1000 = 
+                        {3,   6,  3,
                         108,    -159,   63,
                         108}; // из проги для прибора
 
-const FiltOptions decimlowpass_opt_250 = {11,   22,  11,
+const FiltOptions decimlowpass_opt_250 = 
+                        {11,   22,  11,
                         40,    -3,   7,
                         40}; // свой
 
-const FiltOptions highpass_opt_1000 = {122,  -224,   122,
+// butter high 2 порядка от 30 Гц
+const FiltOptions highpass_opt_1000 = 
+                        {122,  -224,   122,
                         128,    -222,   98,
                         128}; // из проги для прибора
 
-const FiltOptions highpass_opt_250 = {32,  -64,   32,
+const FiltOptions highpass_opt_250 = 
+                        {32,  -64,   32,
                         55,    -54,   19,
                         55}; // свой
 
-const FiltOptions lowpass_opt_250 = {2, 4,  2,
-                    150,    -247,   105,
-                    150}; // из проги для прибора
+// butter low 2 порядка до 10 Гц
+const FiltOptions lowpass_opt_250 = 
+                        {2, 4,  2,
+                        150,    -247,   105,
+                        150}; // из проги для прибора (сигнал 1000Гц после децимации в 4 раза)
 
-const FiltOptions lowpass_opt_1000 = {1, 2,  1,
-                    1116,    -2133,   1021,
-                    1116}; // свой (если понадобится погонять 1000Гц без децимации)
+const FiltOptions lowpass_opt_1000 = 
+                        {1, 2,  1,
+                        1116,    -2133,   1021,
+                        1116}; // свой (если понадобится погонять 1000Гц без децимации)
+
+// для выделения пульсовой волны (из прибора) butter low 2 порядка до 10 Гц
+const FiltOptions presspls_lowpass_opt_125 = 
+                        {17, 34, 17,
+                        369, -482, 181,
+                        369};
+
+// butter high от 0.3 Гц
+const FiltOptions pls_highpass_opt_125 = 
+                        {42, -84, 42,
+                        43, -85, 42,
+                        43};
+
+// butter 2 low до 20 Гц
+const FiltOptions pls_dcmlowpass_opt_1000 = 
+                        {1, 2, 1,
+                        281, -512, 235,
+                        281}; // из проги (для сырого сигнала 1000 Гц)
+
+const FiltOptions pls_dcmlowpass_opt_250 = 
+                        {3, 6, 3,
+                        65, -85, 32,
+                        65}; // свой (для сырого сигнала 250 Гц)
+
+
+struct FiltPack
+{
+    FiltOptions butter_2_60_low[3];
+    FiltOptions butter_2_10_low[3];
+    FiltOptions butter_2_30_high[3];
+    FiltOptions butter_2_03_high[3];
+    FiltOptions butter_2_20_low[3];
+
+    FiltPack()
+    {
+        butter_2_60_low[Hz250] =    FiltOptions    {11,   22,  11,
+                                                    40,    -3,   7,
+                                                    40};
+
+        butter_2_60_low[Hz1000] =   FiltOptions     {3,   6,  3,
+                                                    108,    -159,   63,
+                                                    108};
+
+        butter_2_10_low[Hz125] =    FiltOptions     {17, 34, 17,
+                                                    369, -482, 181,
+                                                    369};
+
+        butter_2_10_low[Hz250] =    FiltOptions     {2, 4,  2,
+                                                    150,    -247,   105,
+                                                    150};
+
+        butter_2_10_low[Hz1000] =   FiltOptions     {1, 2,  1,
+                                                    1116,    -2133,   1021,
+                                                    1116};
+
+        butter_2_30_high[Hz250] =   FiltOptions     {32,  -64,   32,
+                                                    55,    -54,   19,
+                                                    55};
+
+        butter_2_30_high[Hz1000] =  FiltOptions     {122,  -224,   122,
+                                                    128,    -222,   98,
+                                                    128};
+
+        butter_2_03_high[Hz125] =   FiltOptions     {42, -84, 42,
+                                                    43, -85, 42,
+                                                    43};
+
+        butter_2_20_low[Hz1000] =   FiltOptions     {1, 2, 1,
+                                                    281, -512, 235,
+                                                    281};
+
+        butter_2_20_low[Hz250] =    FiltOptions     {3, 6, 3,
+                                                    65, -85, 32,
+                                                    65};
+        
+    };
+};
 
 
 struct Filter
@@ -51,22 +144,31 @@ private:
     int32_t StkX[2];
     int32_t StkY[2];
     int32_t pnStk; // указатель для кольцевых стеков StkX и StkY
-
-
-    inline SetOptions(FiltOptions _opt) {opt = _opt;}; // установка нужного набора коэффициентов
+    FsOpt fs;
 
 public:
 
     // оформить лаконичнее, не через такой хардкод
-    inline SetDecimLowpass(int32_t _fs) 
-    {   if (_fs == 1000) SetOptions(decimlowpass_opt_1000); Reset();
-        if (_fs == 250) SetOptions(decimlowpass_opt_250); Reset();}; 
-    inline SetHighPass(int32_t _fs) 
-    {   if (_fs == 1000) SetOptions(highpass_opt_1000); Reset();
-        if (_fs == 250) SetOptions(highpass_opt_250); Reset();};   
-    inline SetLowPass(int32_t _fs) 
-    {   if (_fs == 1000) SetOptions(lowpass_opt_1000); Reset();
-        if (_fs == 250) SetOptions(lowpass_opt_250); Reset();};     
+    // inline SetDecimLowpass(int32_t _fs) 
+    // {   if (_fs == 1000) SetOptions(decimlowpass_opt_1000); Reset();
+    //     if (_fs == 250) SetOptions(decimlowpass_opt_250); Reset();}; 
+    // inline SetHighPass(int32_t _fs) 
+    // {   if (_fs == 1000) SetOptions(highpass_opt_1000); Reset();
+    //     if (_fs == 250) SetOptions(highpass_opt_250); Reset();};   
+    // inline SetLowPass(int32_t _fs) 
+    // {   if (_fs == 1000) SetOptions(lowpass_opt_1000); Reset();
+    //     if (_fs == 250) SetOptions(lowpass_opt_250); Reset();};    
+
+    Filter(int32_t Fs)
+    {
+        if (Fs == 125) {fs = Hz125;}
+        else if (Fs == 250) {fs = Hz250;}
+        else if (Fs == 1000) {fs = Hz1000;};
+
+        Reset();
+    }
+
+    inline SetOptions(FiltOptions* _opt) {opt = _opt[fs];}; // установка нужного набора коэффициентов 
 
     inline Reset() // перезапуск перед началом любого цикла обработки
     {
@@ -163,4 +265,75 @@ struct BaselineFilter
 
         return (x - lv/k * 7/8);
     };
+};
+
+// struct DiffFilter{ // Дифференциальный фильтр из вебдивайса, с изменениями по примеру Виктора из микробокса
+    
+//     int32_t N;               // длина буфера (в элементах)
+//     int point{0};            // указатель на переписываемую ячейку буфера
+//     bool flg{true};          // флаг разрешения записи в буфер
+//     int32_t* buf = nullptr;  // указатель на первый элемент буфера
+//     bool PHF;                // полярность?? сигнала
+//     int delay;               // задержка фильтра
+
+//     DiffFilter(size_t _delta = 2, bool _phf = true)
+//     : N(_delta), PHF(_phf)
+//     {
+//         buf = new int32_t[N];
+//         delay = N/2;
+//         flg = true;
+//     }
+
+//     inline void Set(int32_t x)
+//     {
+//         for(int i = 0; i < N; i++) buf[i] = x;
+//         flg = false;
+//     }
+//     //-----------------------------------------------------------------------------
+//     inline int32_t Exe(int32_t x)
+//     {
+//         if(flg) Set(x);
+//         int32_t last = buf[point];
+//         buf[point] = x;
+//         point++; point %= N;
+//         if (PHF) return last - x; else return x - last;
+//     }
+
+// };
+
+struct DiffFilter{ // Дифференциальный фильтр из вебдивайса, с изменениями по примеру Виктора из микробокса
+    
+    int32_t N;               // длина буфера (в элементах)
+    int32_t* buf = nullptr;  // указатель на первый элемент буфера
+    int32_t current;
+    int32_t last;
+    int32_t windowLen;
+
+    DiffFilter(int32_t _bufsize, int32_t _windowlen)
+    : N(_bufsize), windowLen(_windowlen)
+    {
+        buf = new int32_t[N];
+        current = 0;
+
+        Reset();
+    };
+
+    inline void Reset()
+    {
+        memset ( buf, 0, N*sizeof(int32_t) );
+        last = (current + N - windowLen) % N;
+    };
+
+    //-----------------------------------------------------------------------------
+
+    inline int32_t Exe(int32_t x)
+    {
+        int32_t res = x - buf[last];
+        buf[current] = x;
+        ++current %= N;
+        ++last %= N;
+
+        return res;
+    };
+
 };
