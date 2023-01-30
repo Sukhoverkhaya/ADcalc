@@ -55,7 +55,7 @@ public:
 	int32_t Pmax;
 
 	// Буфер для вычисления медианы
-	static const int medRail = 5;
+	static const int32_t medRail = 5;
 	int32_t medBuf[medRail];
 	int32_t medCursor;
 	//
@@ -109,10 +109,10 @@ public:
 
 	inline void StartInflST() // начало оценки на накачке
 	{
-		Reset(); // ресет текущего класса
-		On();    // унаследовано от ST (получаем ON = true)
+		Reset(); 			// ресет текущего класса
+		On();    			// унаследовано от ST (получаем ON = true)
 
-		buf = bufInfl; // буфер на 100 значений ToneEvent
+		buf = bufInfl; 		// буфер на 100 значений ToneEvent
 		stopInfl = false;
 		stopDefl = false;
 
@@ -127,9 +127,9 @@ public:
 
 	inline void StartDeflST() // начало оценки на спуске
 	{
-		Reset(); // ресет текущего класса
-		On();    // унаследовано от ST (получаем ON = true)
-		buf = bufDefl;  // буфер на 100 значений ToneEvent
+		Reset(); 			// ресет текущего класса
+		On();    			// унаследовано от ST (получаем ON = true)
+		buf = bufDefl;  	// буфер на 100 значений ToneEvent
 	}	
 //______________________________________________
 	
@@ -139,7 +139,7 @@ public:
 		stateChanged = true;
 	}
 	
-	bool IsStateChanged() // если состояние изменилось, возвращаем true и изменяем маркер переключения состояния на false 
+	bool IsStateChanged() 	// если состояние изменилось, возвращаем true и изменяем маркер переключения состояния на false 
                             // не вернет тру, пока не будет stateChanged, то есть пока не будет вызван метод ChangeState
 	{
 		if(stateChanged)
@@ -152,7 +152,7 @@ public:
 	}	
 };
 
-struct BaseStateTone
+struct BaseStateTone   // родительский класс для всех состояний алгоритма
 {
 public:
     ControlTone& sm;
@@ -283,31 +283,31 @@ struct StateToneInfl2 : BaseStateTone
 			timer = 0; // Перезапускаем таймер
 			if ( !sm.buf[sm.cursor].bad ) sm.ilast = sm.cursor;
 		}				
-		if (!sm.buf[sm.cursor].bad) //пересчитываем средний уровень только по хорошим
+		if (!sm.buf[sm.cursor].bad) // пересчитываем средний уровень только по хорошим
 		{
-			//пересчет-2, по медиане из 3-х
-			sm.medBuf[sm.medCursor] = sm.buf[sm.cursor].val; //заполнение буфера
+			// пересчет-2, по медиане из 3-х
+			sm.medBuf[sm.medCursor] = sm.buf[sm.cursor].val; // заполнение буфера
 			++sm.medCursor %= sm.medRail;
 			sm.maxLvl = fnMax(med3(sm.medBuf), sm.maxLvl); 
 		}
 
-		//критерий браковки по времени
-		if(toneEvent.press < PrsSet(NO_BAD_TILL_PRESS)) //До NO_BAD_TILL_PRESS браковка не работает
+		// критерий браковки по времени
+		if(toneEvent.press < PrsSet(NO_BAD_TILL_PRESS)) // До NO_BAD_TILL_PRESS браковка не работает
 		{
-			//NOP
+			// NOP
 		}
 		else if(sm.buf[sm.cursor].bad) // Если плохая
 		{
 			badTime += sm.buf[sm.cursor].pos - sm.buf[sm.cursor - 1].pos;
-			if( badTime > maxBadTime ) //измерение забраковано по макс интервалу бракованных пиков
+			if( badTime > maxBadTime ) // измерение забраковано по макс интервалу бракованных пиков
 			{
 				sm.ChangeState(STT::STATE_FAIL);
 			}			
 		}
-		else if(badTime > 0) //Если хорошая
+		else if(badTime > 0) // Если хорошая
 		{
-			badTime += sm.buf[sm.cursor].pos - sm.buf[sm.cursor - 1].pos; //NOTE(romanm): Мы уже не считаем буферы круговыми, так что так можно
-			if( badTime > maxBadTime ) //измерение забраковано по макс интервалу бракованных пиков
+			badTime += sm.buf[sm.cursor].pos - sm.buf[sm.cursor - 1].pos; // NOTE(romanm): Мы уже не считаем буферы круговыми, так что так можно
+			if( badTime > maxBadTime ) // измерение забраковано по макс интервалу бракованных пиков
 			{
 				sm.ChangeState(STT::STATE_FAIL);
 			}	
@@ -315,11 +315,11 @@ struct StateToneInfl2 : BaseStateTone
 		}
 		
 			
-		//Двигаем буфер
+		// Двигаем буфер
 		++sm.cursor %= sm.rail;
 	}
 	
-	inline void Tick() // пока подаем PrsMsr снаружи
+	inline void Tick()
 	{
 		timer++;
 		if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;

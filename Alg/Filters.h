@@ -16,75 +16,67 @@ enum FsOpt // читобы к-ты фильтров с одинаковыми х
     Hz1000 = 2,
 };
 
+// // butter low 2 порядка до 60 Гц
+// const FiltOptions decimlowpass_opt_1000 = 
+//                         {3,   6,  3,
+//                         108,    -159,   63,
+//                         108}; // из проги для прибора
 
-// если исходить из того, что к-ты взяты из кода для прибора,
-// который, судя по всему, работает с частотой дискретизации 1000 ГЦ,
-// то decimlowpass и highpass работают с исходным сигналом в 100 Гц,
-// тогда как lowpass применяется уже после прореживания в 4 раза, т.е. на 250 Гц
+// const FiltOptions decimlowpass_opt_250 = 
+//                         {11,   22,  11,
+//                         40,    -3,   7,
+//                         40}; // свой
 
-// предположительно: decimlowpass - butter low 2 порядка до 60 Гц
-//                   highpass - butter high 2 порядка от 30 Гц
-//                   lowpass - butter low 2 порядка до 10 Гц
+// // butter high 2 порядка от 30 Гц
+// const FiltOptions highpass_opt_1000 = 
+//                         {122,  -224,   122,
+//                         128,    -222,   98,
+//                         128}; // из проги для прибора
 
-// butter low 2 порядка до 60 Гц
-const FiltOptions decimlowpass_opt_1000 = 
-                        {3,   6,  3,
-                        108,    -159,   63,
-                        108}; // из проги для прибора
+// const FiltOptions highpass_opt_250 = 
+//                         {32,  -64,   32,
+//                         55,    -54,   19,
+//                         55}; // свой
 
-const FiltOptions decimlowpass_opt_250 = 
-                        {11,   22,  11,
-                        40,    -3,   7,
-                        40}; // свой
+// // butter low 2 порядка до 10 Гц
+// const FiltOptions lowpass_opt_250 = 
+//                         {2, 4,  2,
+//                         150,    -247,   105,
+//                         150}; // из проги для прибора (сигнал 1000Гц после децимации в 4 раза)
 
-// butter high 2 порядка от 30 Гц
-const FiltOptions highpass_opt_1000 = 
-                        {122,  -224,   122,
-                        128,    -222,   98,
-                        128}; // из проги для прибора
+// const FiltOptions lowpass_opt_1000 = 
+//                         {1, 2,  1,
+//                         1116,    -2133,   1021,
+//                         1116}; // свой (если понадобится погонять 1000Гц без децимации)
 
-const FiltOptions highpass_opt_250 = 
-                        {32,  -64,   32,
-                        55,    -54,   19,
-                        55}; // свой
+// // для выделения пульсовой волны (из прибора) butter low 2 порядка до 10 Гц
+// const FiltOptions presspls_lowpass_opt_125 = 
+//                         {17, 34, 17,
+//                         369, -482, 181,
+//                         369};
 
-// butter low 2 порядка до 10 Гц
-const FiltOptions lowpass_opt_250 = 
-                        {2, 4,  2,
-                        150,    -247,   105,
-                        150}; // из проги для прибора (сигнал 1000Гц после децимации в 4 раза)
+// // butter high от 0.3 Гц
+// const FiltOptions pls_highpass_opt_125 = 
+//                         {42, -84, 42,
+//                         43, -85, 42,
+//                         43};
 
-const FiltOptions lowpass_opt_1000 = 
-                        {1, 2,  1,
-                        1116,    -2133,   1021,
-                        1116}; // свой (если понадобится погонять 1000Гц без децимации)
+// // butter 2 low до 20 Гц
+// const FiltOptions pls_dcmlowpass_opt_1000 = 
+//                         {1, 2, 1,
+//                         281, -512, 235,
+//                         281}; // из проги (для сырого сигнала 1000 Гц)
 
-// для выделения пульсовой волны (из прибора) butter low 2 порядка до 10 Гц
-const FiltOptions presspls_lowpass_opt_125 = 
-                        {17, 34, 17,
-                        369, -482, 181,
-                        369};
-
-// butter high от 0.3 Гц
-const FiltOptions pls_highpass_opt_125 = 
-                        {42, -84, 42,
-                        43, -85, 42,
-                        43};
-
-// butter 2 low до 20 Гц
-const FiltOptions pls_dcmlowpass_opt_1000 = 
-                        {1, 2, 1,
-                        281, -512, 235,
-                        281}; // из проги (для сырого сигнала 1000 Гц)
-
-const FiltOptions pls_dcmlowpass_opt_250 = 
-                        {3, 6, 3,
-                        65, -85, 32,
-                        65}; // свой (для сырого сигнала 250 Гц)
+// const FiltOptions pls_dcmlowpass_opt_250 = 
+//                         {3, 6, 3,
+//                         65, -85, 32,
+//                         65}; // свой (для сырого сигнала 250 Гц)
 
 
 struct FiltPack
 {
+    // note: название фильтра по принципу: архитектура_порядок_частота среза_тип
+    // каждый фильр имеет набор к-тов для случаев 125 и/или 250 и/или 1000 Гц
     FiltOptions butter_2_60_low[3];
     FiltOptions butter_2_10_low[3];
     FiltOptions butter_2_30_high[3];
@@ -146,18 +138,7 @@ private:
     int32_t pnStk; // указатель для кольцевых стеков StkX и StkY
     FsOpt fs;
 
-public:
-
-    // оформить лаконичнее, не через такой хардкод
-    // inline SetDecimLowpass(int32_t _fs) 
-    // {   if (_fs == 1000) SetOptions(decimlowpass_opt_1000); Reset();
-    //     if (_fs == 250) SetOptions(decimlowpass_opt_250); Reset();}; 
-    // inline SetHighPass(int32_t _fs) 
-    // {   if (_fs == 1000) SetOptions(highpass_opt_1000); Reset();
-    //     if (_fs == 250) SetOptions(highpass_opt_250); Reset();};   
-    // inline SetLowPass(int32_t _fs) 
-    // {   if (_fs == 1000) SetOptions(lowpass_opt_1000); Reset();
-    //     if (_fs == 250) SetOptions(lowpass_opt_250); Reset();};    
+public:  
 
     Filter(int32_t Fs)
     {
@@ -170,7 +151,7 @@ public:
 
     inline SetOptions(FiltOptions* _opt) {opt = _opt[fs];}; // установка нужного набора коэффициентов 
 
-    inline Reset() // перезапуск перед началом любого цикла обработки
+    inline void Reset() // перезапуск перед началом любого цикла обработки
     {
         pnStk = 0;
         memset( StkX, 0, sizeof(StkX) );
@@ -219,7 +200,7 @@ struct Decimator  // Суммирующий дециматор
     Decimator(int32_t _div)
     : dcm(_div) {Reset();};
 
-    inline Reset()
+    inline void Reset()
     {
         rgS = 0;
         cnt = 0;
@@ -228,7 +209,7 @@ struct Decimator  // Суммирующий дециматор
         out = 0;
     }
 
-    inline Exe(int32_t x)
+    inline void Exe(int32_t x)
     {
         rgS += x;
         cnt++;
@@ -251,7 +232,7 @@ struct BaselineFilter
 
 	BaselineFilter() {Reset();};
 
-	inline Reset()
+	inline void Reset()
     {
         k = 200;
         lv = 0;
@@ -266,40 +247,6 @@ struct BaselineFilter
         return (x - lv/k * 7/8);
     };
 };
-
-// struct DiffFilter{ // Дифференциальный фильтр из вебдивайса, с изменениями по примеру Виктора из микробокса
-    
-//     int32_t N;               // длина буфера (в элементах)
-//     int point{0};            // указатель на переписываемую ячейку буфера
-//     bool flg{true};          // флаг разрешения записи в буфер
-//     int32_t* buf = nullptr;  // указатель на первый элемент буфера
-//     bool PHF;                // полярность?? сигнала
-//     int delay;               // задержка фильтра
-
-//     DiffFilter(size_t _delta = 2, bool _phf = true)
-//     : N(_delta), PHF(_phf)
-//     {
-//         buf = new int32_t[N];
-//         delay = N/2;
-//         flg = true;
-//     }
-
-//     inline void Set(int32_t x)
-//     {
-//         for(int i = 0; i < N; i++) buf[i] = x;
-//         flg = false;
-//     }
-//     //-----------------------------------------------------------------------------
-//     inline int32_t Exe(int32_t x)
-//     {
-//         if(flg) Set(x);
-//         int32_t last = buf[point];
-//         buf[point] = x;
-//         point++; point %= N;
-//         if (PHF) return last - x; else return x - last;
-//     }
-
-// };
 
 struct DiffFilter{ // Дифференциальный фильтр из вебдивайса, с изменениями по примеру Виктора из микробокса
     

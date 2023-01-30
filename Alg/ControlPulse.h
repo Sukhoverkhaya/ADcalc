@@ -1,18 +1,198 @@
-// (определение некоторых классов и методов, объявленных в ControlPulseD.h)
-// сделано на основании ControlPulse.cpp из firmware, но без обертки для железа
+// на основании ControlPulse.h из firmware, но без обертки для железа
 #pragma once
 
-#include "ControlPulseD.h"
+#include "StateMachine.h"
+#include "PulseDetect.h"
 #include "arithm.h"
 
-// const int NO_BAD_TILL_PRESS        = 70;
-// const int NO_END_SEARCH_TILL_PRESS = 120;
+struct STP // Состояния для автоматов пульсаций
+{
+	enum States
+	{
+		STATE_0 = 0,
+		STATE_1,
+		STATE_2,
+		STATE_3,
+		STATE_SUCCESS,
+		STATE_FAIL,		
+	};
+};
 
+struct BaseStatePulse;
+class ControlPulse : public ST
+{	
+public:
+
+	bool stopInfl;
+	bool stopDefl;
+	STP::States currentState;
+
+	// Results	
+	PulseEvent inflBeg;
+	PulseEvent inflEnd;
+	PulseEvent deflBeg;
+	PulseEvent deflEnd;
+
+	const int32_t Fs;
+
+	STP::States nextState;
+
+	BaseStatePulse*  stateArrayInfl[6];
+	BaseStatePulse*  stateArrayDefl[6];
+	BaseStatePulse** currentStateMachine;
+	
+	static const int32_t wait = 3;
+	static const int32_t rail = 100;
+	PulseEvent* buf;
+
+	PulseEvent bufInfl[rail];
+	PulseEvent bufDefl[rail];
+	int32_t savedSzInfl;
+	int32_t savedSzDefl;
+	bool InflSuccess;
+	bool DeflSuccess;
+
+	int32_t sz;
+	int32_t cursor;
+	int32_t first;
+
+	// Итераторы хороших пульсации
+	int32_t ilast;
+	int32_t i1;
+	int32_t i2;
+	int32_t i3s;
+	//
+	int32_t minLvl = 500;
+	int32_t Lvl;
+	int32_t maxLvl;
+	int32_t Nb;
+	int32_t Nbad;
+	int32_t maxNbad;
+	int32_t maxBadTime;
+	int32_t Nlow;
+	//
+	int32_t Pmax;
+	int32_t Pmin;
+	
+	// Буфер для вычисления медианы
+	static const int32_t rangeRail = 5;
+	int32_t rangeBuf[rangeRail];
+	int32_t rangeCursor;
+	//
+
+	ControlPulse(const int32_t _fs)
+	: Fs(_fs)
+	{
+		Pmin    = PrsSet(40);
+		Pmax    = 0; //PrsSet(240);
+		//
+		inflBeg.Reset();
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();	
+		//
+		stopInfl = false;
+		stopDefl = false;
+		
+		Reset();
+	};
+
+	inline void StartInflST()
+	{
+		Reset();
+		On();
+		currentStateMachine = stateArrayInfl;
+		buf = bufInfl;
+		stopInfl = false;
+		stopDefl = false;
+		savedSzInfl = 0;
+		savedSzDefl = 0;
+		InflSuccess = false;
+		DeflSuccess = false;
+		
+		inflBeg.Reset();
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();	
+	}
+
+	inline void StartDeflST()
+	{
+		Reset();
+		On();
+		buf = bufDefl;
+	}
+
+	inline void Reset()
+	{
+		currentState = STP::STATE_0;
+		nextState    = STP::STATE_0;
+		stateChanged = true;
+		
+		
+		//Буфер событий тонов
+		cursor = 0;
+		first  = 0;
+		sz     = 0;
+		
+		//	//
+		inflBeg.Reset();
+		inflEnd.Reset();
+		deflBeg.Reset();
+		deflEnd.Reset();
+		//
+		ilast = 0;
+		i1    = 0;
+		i2    = 0;
+		i3s   = 0;
+		//
+		Lvl     = 0;
+		maxLvl  = 0;	
+		Nb      = 0;
+		Nbad    = 0;
+		maxNbad = 5;
+		Nlow    = 0;
+		maxBadTime = 5 * Fs;
+		rangeCursor = 0;	
+	}
+
+	inline void ChangeState(STP::States _state)
+	{
+		nextState   = _state;
+		stateChanged = true;
+	}
+	
+	bool IsStateChanged()
+	{
+		if(stateChanged)
+		{
+			stateChanged = false;
+			return true;
+		}
+		
+		return false;
+	}	
+	
+};	
+
+struct BaseStatePulse  // родительский класс для всех состояний алгоритма
+{
+public:
+    ControlPulse& sm;
+
+    BaseStatePulse(ControlPulse& _sm) : sm(_sm) { }
+    
+    virtual void Tick()      { };
+    virtual void NewPulse(PulseEvent& PulseEvent)  { };
+    virtual void Enter()     { };
+    virtual void Exit()      { };	
+};
+//_________________________________________________________________
 struct StatePulseInfl0 : BaseStatePulse
 {
 	StatePulseInfl0(ControlPulse& sm) : BaseStatePulse(sm) {}
 	
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		sm.buf[sm.cursor] = PulseEvent;
 
@@ -24,7 +204,6 @@ struct StatePulseInfl0 : BaseStatePulse
 		}
 		
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;
 	}
 	
 };
@@ -33,12 +212,12 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 {
 	StatePulseInfl1(ControlPulse& sm) : BaseStatePulse(sm) {}
 								
-	void Enter()
+	inline void Enter()
 	{
 		sm.Nb = 1;
 	}
 		
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = PulseEvent;			
@@ -47,8 +226,7 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 		{
 			//Двигаем буфер
 			++sm.cursor %= sm.rail;
-			// ++sm.sz;				
-			
+
 			return;
 		}
 			
@@ -91,8 +269,6 @@ struct StatePulseInfl1 : BaseStatePulse //начинаем копить хоро
 		
 		//Двигаем буфер
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;			
-
 	}
 	
 };	
@@ -101,19 +277,15 @@ struct StatePulseInfl2 : BaseStatePulse
 {
 	StatePulseInfl2(ControlPulse& sm) : BaseStatePulse(sm), k1000(0), maxBadTime(sm.Fs*5), badTime(0), imax(0), timer(0) {}
 				
-	void Enter()
+	inline void Enter()
 	{
 		k1000 = 0;
 		badTime = 0;
 		imax = 0;	
 		timer = 0;
-		
-		//МЕТКА
-		// _MARK( createLowBoundary(ADType_Pulse, ADDir_INFL); )
-		//МЕТКА
 	}		
 		
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		// критерий браковки по времени и по количеству бракованных пульсаций 
     // будет плохо работать, если диастола на накачке захвачена рано!
@@ -141,7 +313,7 @@ struct StatePulseInfl2 : BaseStatePulse
 			if ( sm.Nbad >= sm.maxNbad ) // браковка накачки и переход на спуск
 			{
 				sm.ChangeState(STP::STATE_FAIL);
-				//sm.Off();	
+				sm.Off();	
 			}
 		}
 		else
@@ -158,7 +330,7 @@ struct StatePulseInfl2 : BaseStatePulse
 				if( badTime > maxBadTime ) //измерение забраковано по макс интервалу бракованных пиков
 				{
 					sm.ChangeState(STP::STATE_FAIL);
-					//sm.Off();						
+					sm.Off();						
 				}
 				badTime = 0;
 			}
@@ -202,7 +374,7 @@ struct StatePulseInfl2 : BaseStatePulse
 		// ++sm.sz;
 	}
 	
-	void Tick()
+	inline void Tick()
 	{
 		timer++;
 		if(sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
@@ -224,7 +396,7 @@ struct StatePulseInfl2 : BaseStatePulse
 	}	
 	
 	int32_t k1000;
-	const int maxBadTime;
+	const int32_t maxBadTime;
 	int32_t badTime;
 	int32_t imax;
 	int32_t timer;
@@ -273,19 +445,9 @@ struct StatePulseInflSuccess : BaseStatePulse
 {
 	StatePulseInflSuccess(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	void Enter()
-	{	
-		//МЕТКА
-		// _MARK( createHighBoundary(ADType_Pulse, ADDir_INFL); )
-		//МЕТКА
-		//sm.savedSzInfl = sm.sz;
-		sm.InflSuccess = true;
-	}			
+	inline void Enter() {sm.InflSuccess = true;}			
 		
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick(){sm.Off();}
 	
 };
 
@@ -293,10 +455,7 @@ struct StatePulseInflFail : BaseStatePulse
 {
 	StatePulseInflFail(ControlPulse& sm) : BaseStatePulse(sm) {}
 					
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick() {sm.Off();}
 	
 };
 
@@ -305,13 +464,8 @@ struct StatePulseInflFail : BaseStatePulse
 struct StatePulseDefl0 : BaseStatePulse
 {
 	StatePulseDefl0(ControlPulse& sm) : BaseStatePulse(sm) {}
-	
-	void Enter()
-	{
-		// sm.Pmax = PressMax;
-	}
 		
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		sm.buf[sm.cursor] = PulseEvent;
 		
@@ -330,15 +484,8 @@ struct StatePulseDefl0 : BaseStatePulse
 struct StatePulseDefl1 : BaseStatePulse //начинаем копить хорошие пульсации
 {
 	StatePulseDefl1(ControlPulse& sm) : BaseStatePulse(sm) {}
-								
-	void Enter()
-	{
-		// МЕТКА
-		// createHighBoundary(ADType_Pulse, ADDir_DEFL);
-		// МЕТКА		
-	}
 		
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = PulseEvent;			
@@ -348,8 +495,6 @@ struct StatePulseDefl1 : BaseStatePulse //начинаем копить хоро
 		{
 			//Двигаем буфер
 			++sm.cursor %= sm.rail;
-			// ++sm.sz;				
-			
 			return;
 		}
 			
@@ -393,8 +538,6 @@ struct StatePulseDefl1 : BaseStatePulse //начинаем копить хоро
 		
 		//Двигаем буфер
 		++sm.cursor %= sm.rail;
-		// ++sm.sz;			
-
 	}
 	
 };	
@@ -404,22 +547,18 @@ struct StatePulseDefl2 : BaseStatePulse
 {
 	StatePulseDefl2(ControlPulse& sm) : BaseStatePulse(sm), k1000(0), maxBadTime(sm.Fs*5), badTime(0), imax(0), timer(0) {}
 		
-	void Enter()
+	inline void Enter()
 	{
 		k1000 = 0;
 		badTime = 0;
 		imax = 0;	
-		timer = 0;
-		
-//		//МЕТКА
-//		createHighBoundary(ADType_Pulse, ADDir_DEFL);
-//		//МЕТКА		
+		timer = 0;	
 	}
 				
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{
 		// критерий браковки по времени и по количеству бракованных пульсаций 
-    // будет плохо работать, если диастола на накачке захвачена рано!
+    	// будет плохо работать, если диастола на накачке захвачена рано!
 		
 		//Добавляем пульсацию в буфер
 		sm.buf[sm.cursor] = PulseEvent;
@@ -438,7 +577,7 @@ struct StatePulseDefl2 : BaseStatePulse
 			if ( sm.Nbad >= sm.maxNbad ) // браковка накачки и переход на спуск
 			{
 				sm.ChangeState(STP::STATE_FAIL);
-				//sm.Off();	
+				sm.Off();	
 			}
 		}
 		else
@@ -455,7 +594,7 @@ struct StatePulseDefl2 : BaseStatePulse
 				if( badTime > maxBadTime ) //измерение забраковано по макс интервалу бракованных пиков
 				{
 					sm.ChangeState(STP::STATE_FAIL);
-					//sm.Off();						
+					sm.Off();						
 				}
 				badTime = 0;
 			}
@@ -500,7 +639,7 @@ struct StatePulseDefl2 : BaseStatePulse
 	}
 	
 		
-	void Tick()
+	inline void Tick()
 	{
 		timer++;
 		if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
@@ -520,7 +659,7 @@ struct StatePulseDefl2 : BaseStatePulse
 	}		
 	
 	int32_t k1000;
-	const int maxBadTime;
+	const int32_t maxBadTime;
 	int32_t badTime;
 	int32_t imax;
 	int32_t timer;
@@ -531,33 +670,24 @@ struct StatePulseDefl3 : BaseStatePulse
 {
 	StatePulseDefl3(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	void Enter()
-	{
-		//МЕТКА
-		// _MARK( createLowBoundary(ADType_Pulse, ADDir_DEFL); )
-		//МЕТКА		
-		//sm.savedSzDefl = sm.sz;
-		sm.DeflSuccess = true;
-	}		
+	inline void Enter() { sm.DeflSuccess = true;}		
 		
-	void Tick()
+	inline void Tick()
 	{
 		if( sm.deflEnd.press - PrsSet(10) > sm.buf[sm.cursor].press ||  PrsSet(30) >sm.buf[sm.cursor].press ) //?
 		{
-			//sm.Pmax = GET_SERVICE(BpmMediator)->PrsMsr;
 			sm.ChangeState(STP::STATE_SUCCESS);
 			sm.stopDefl = true;
 		}
 	}
 				
-	void NewPulse(PulseEvent& PulseEvent) 
+	inline void NewPulse(PulseEvent& PulseEvent) 
 	{ 
 		//Добавляем пульсацию в буфер
 		if( sm.cursor >= sm.rail ) return;
 		sm.buf[sm.cursor] = PulseEvent;
 		//Двигаем буфер
-		++sm.cursor %= sm.rail;
-		// ++sm.sz;		
+		++sm.cursor %= sm.rail;	
 	}
 	
 };
@@ -566,10 +696,7 @@ struct StatePulseDeflSuccess : BaseStatePulse
 {
 	StatePulseDeflSuccess(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	void Tick()
-	{
-		sm.Off();
-	}
+	inline void Tick() {sm.Off();}
 	
 };
 
@@ -577,123 +704,10 @@ struct StatePulseDeflFail : BaseStatePulse
 {
 	StatePulseDeflFail(ControlPulse& sm) : BaseStatePulse(sm) {}
 		
-	void Tick()
+	inline void Tick()
 	{
 		sm.stopDefl = true;
 		sm.Off();
 	}
 	
 };
-
-//-----------------------------------------------------------------------------
-ControlPulse::ControlPulse(const int _fs)
-: Fs(_fs)
-{
-	
-// 	//State Infl
-// 	stateArrayInfl[STP::STATE_0] =       new StatePulseInfl0(*this);
-// 	stateArrayInfl[STP::STATE_1] =       new StatePulseInfl1(*this);
-// 	stateArrayInfl[STP::STATE_2] =       new StatePulseInfl2(*this);	
-// //	stateArrayInfl[STP::STATE_3] =       new StatePulseInfl3(*this);
-// 	stateArrayInfl[STP::STATE_SUCCESS] = new StatePulseInflSuccess(*this);
-// 	stateArrayInfl[STP::STATE_FAIL] =    new StatePulseInflFail(*this);	
-	
-// 	//State Defl
-// 	stateArrayDefl[STP::STATE_0] =       new StatePulseDefl0(*this);
-// 	stateArrayDefl[STP::STATE_1] =       new StatePulseDefl1(*this);
-// 	stateArrayDefl[STP::STATE_2] =       new StatePulseDefl2(*this);	
-// 	stateArrayDefl[STP::STATE_3] =       new StatePulseDefl3(*this);
-// 	stateArrayDefl[STP::STATE_SUCCESS] = new StatePulseDeflSuccess(*this);
-// 	stateArrayDefl[STP::STATE_FAIL] =    new StatePulseDeflFail(*this);
-	
-
-// 	currentStateMachine = stateArrayInfl;
-
-	Pmin    = PrsSet(40);
-	Pmax    = 0;//PrsSet(240);
-	//
-	inflBeg.Reset();
-	inflEnd.Reset();
-	deflBeg.Reset();
-	deflEnd.Reset();	
-	//
-	stopInfl = false;
-	stopDefl = false;
-	
-	Reset();
-}
-//-----------------------------------------------------------------------------
-void ControlPulse::Reset()
-{
-	currentState = STP::STATE_0;
-  nextState    = STP::STATE_0;
-  stateChanged = true;
-	
-	
-	//Буфер событий тонов
-	cursor = 0;
-	first  = 0;
-	sz     = 0;
-	
-//	//
-//	inflBeg.Reset();
-//	inflEnd.Reset();
-//	deflBeg.Reset();
-//	deflEnd.Reset();
-	//
-	ilast = 0;
-	i1    = 0;
-	i2    = 0;
-	i3s   = 0;
-	//
-	Lvl     = 0;
-	maxLvl  = 0;	
-	Nb      = 0;
-	Nbad    = 0;
-	maxNbad = 5;
-	Nlow    = 0;
-	maxBadTime = 5 * Fs;
-	rangeCursor = 0;
-	
-//	Pmin    = PrsSet(40);
-//	Pmax    = 0;
-	//	
-}
-//-----------------------------------------------------------------------------
-// void ControlPulse::EventNewPulse(PulseEvent& PulseEvent)
-// {
-// 	if(!ON) return;
-	
-// 	if( IsStateChanged() ) 
-// 	{
-// 		currentStateMachine[currentState]->Exit();
-// 		currentState = nextState;
-// 		currentStateMachine[currentState]->Enter();
-// 	}
-	
-// 	currentStateMachine[currentState]->NewPulse(PulseEvent);
-// }
-// //-----------------------------------------------------------------------------
-// void ControlPulse::EventTick()
-// {
-// 	if(!ON) return;
-	
-// 	if( IsStateChanged() ) 
-// 	{
-// 		currentStateMachine[currentState]->Exit();
-// 		currentState = nextState;
-// 		// createDebugMarkStepPulse(currentState);
-// 		currentStateMachine[currentState]->Enter();
-// 	}	
-	
-// 	currentStateMachine[currentState]->Tick();
-// }
-//-----------------------------------------------------------------------------
-//-----------------------------------------------------------------------------
-
-
-
-
-
-
-

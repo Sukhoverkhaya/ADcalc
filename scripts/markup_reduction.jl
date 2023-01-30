@@ -8,19 +8,31 @@ include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/refmkpguifunctions.jl")
 
 function readcppmkp(fname, vseg)
 
-    buf = NamedTuple{(:pos, :bad), NTuple{2, Int64}}[]
-
+    mkp = []
+    mode = 0
     open(fname) do file
-        line = readline(file) # пропускаем заголовок
+        line = readline(file)
+        line = readline(file)
+        line = readline(file)
+        
         while !eof(file)
             line = readline(file)
-            vls = split(line, '	')
-            val = map(x -> parse(Int64, x), vls)
-            push!(buf, (pos = val[1], bad = val[end]))
+            val = map(x -> parse(Int32, x), split(line, '	'))
+            if length(val) == 2
+                push!(mkp, (pos = val[1], bad = val[2]));
+                mode = 1
+            elseif length(val) == 3
+                push!(mkp, (ibeg = val[1], iend = val[2], bad = val[3]));
+                mode = 2
+            end
         end
     end
 
-    mkp = map(i -> filter(x -> x.pos >= i.ibeg && x.pos <= i.iend, buf), vseg)
+    if mode == 1
+        mkp = map(i -> filter(x -> x.pos >= i.ibeg && x.pos <= i.iend, mkp), vseg)
+    elseif mode == 2
+        mkp = map(i -> filter(x -> x.ibeg >= i.ibeg && x.iend <= i.iend, mkp), vseg)
+    end
 
     return mkp
 end
@@ -54,7 +66,7 @@ for filename in allfnames[1:end]
 
     # перетягиваем разметку из алгоритма в гуишную с поправкой на позицию начала сегмента, так как в гуишной
     # начало каждого сегмента принимается за ноль (но хранится информация о положении начала сегмента во всем сигнале)
-    Pres_guimkp = map((x,d) -> map(y -> PresGuiMkp(y.pos-d.ibeg, y.pos-d.ibeg, y.bad), x), Pres_mkp, vseg)
+    Pres_guimkp = map((x,d) -> map(y -> PresGuiMkp(y.ibeg-d.ibeg, y.iend-d.ibeg, y.bad), x), Pres_mkp, vseg)
     Tone_guimkp = map((x,d) -> map(y -> ToneGuiMkp(y.pos-d.ibeg, y.bad), x), Tone_mkp, vseg)
 
     # получение референтных границ АД и рабочей зоны на накачке и на спуске (ПО АМПЛИТУДЕ)

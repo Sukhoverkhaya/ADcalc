@@ -12,19 +12,21 @@
 
 // using namespace std;
 
-struct Header {               // Лёшина читалка хедеров с сокращениями и изменениями
-	int leadnum;              // число каналов
-	int len;                  // длина записи в отсчетах
-	float fs;                 // частота дискретизации
+struct Header 					// Лёшина читалка хедеров с сокращениями и изменениями
+{               				
+	int leadnum;              	// число каналов
+	int len;                  	// длина записи в отсчетах
+	float fs;                 	// частота дискретизации
 	std::vector<std::string> leadnames; // имена каналов (отведений)
-	std::vector<double> lsbs;      // веса младших разрядов для всех каналов
-	std::string type = "int32";    // тип данных 
+	std::vector<double> lsbs;      		// веса младших разрядов для всех каналов
+	std::string type = "int32";    		// тип данных 
 
-	Header(std::istream &stream) {
+	Header(std::istream &stream) 
+	{
 		double lsb = 0;                // вес младшего разряда
 		long long startPoint = 0;      // первая точка
 		long long endPoint = 0;        // последняя точка сигнала
-		std::string realTime;               // реальное время
+		std::string realTime;          // реальное время
 
 		std::string line;
 		getline(stream, line);

@@ -20,6 +20,8 @@ b = 3; ## номер валидного участка (одного измер�
 # ПРОВЕРКА ДЛЯ ТОНОВ
 
 ## ФИЛЬТРЫ ##
+k = (fs == 1000) ? 8 : 2 # к-т децимации
+
 fname = "data/KT 07 AD ECG/PX11321102817293_filttone.txt"
 
 function readfilt(fname)
@@ -62,15 +64,34 @@ function readfilt(fname)
 end
 
 filtered = readfilt(fname)
+keys(filtered)
 
-k = (fs == 1000) ? 8 : 2 # к-т децимации
+tone = resample(filtered.tone, k)
+rawTone = resample(filtered.rawTone, k)
+smooth = resample(filtered.smoothTone, k)
+smth_dcm_abs = resample(filtered.smth_dcm_abs, k)
+env = resample(filtered.env, k)
+envfilt = resample(filtered.envfilt, k)
+LvR = resample(filtered.LvR, k)
+LvN = resample(filtered.LvN, k)
+LvP = resample(filtered.LvP, k)
 
-# plot(filtered.tone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-# plot!(filtered.rawTone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-# plot(filtered.smoothTone[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-# plot!(filtered.smth_dcm_abs[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-# plot(filtered.env[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-# plot!(filtered.envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot(tone[vseg[b].ibeg:vseg[b].iend-100])
+plot!(rawTone[vseg[b].ibeg:vseg[b].iend-100])
+plot!(smooth[vseg[b].ibeg:vseg[b].iend-100])
+plot!(smth_dcm_abs[vseg[b].ibeg:vseg[b].iend-100])
+
+plot(smth_dcm_abs[vseg[b].ibeg:vseg[b].iend-100])
+plot!(env[vseg[b].ibeg:vseg[b].iend-100])
+plot!(envfilt[vseg[b].ibeg:vseg[b].iend-100])
+
+plot(envfilt[vseg[b].ibeg:vseg[b].iend-100], label = "envelope")
+xlims!(10000, 11000)
+ylims!(-1000, 4000)
+
+plot!(LvR[vseg[b].ibeg:vseg[b].iend-100], label = "LvR")
+plot!(LvN[vseg[b].ibeg:vseg[b].iend-100], label = "LvN")
+plot!(LvP[vseg[b].ibeg:vseg[b].iend-100], label = "LvP")
 
 #### РАЗМЕТКА ###
 fname = "data/KT 07 AD ECG/PX11321102817293_tone_mkp.txt"
@@ -79,10 +100,17 @@ function readmkp(fname)
     mkp = []
     open(fname) do file
         line = readline(file)
+        line = readline(file)
+        line = readline(file)
+
         while !eof(file)
             line = readline(file)
             val = map(x -> parse(Int32, x), split(line, '	'))
-            push!(mkp, (pos = val[1], bad = val[2]));
+            if length(val) == 2
+                push!(mkp, (pos = val[1], bad = val[2]));
+            elseif length(val) == 3
+                push!(mkp, (ibeg = val[1], iend = val[2], bad = val[3]));
+            end
         end
     end
 
@@ -91,26 +119,28 @@ end
 
 mkp = readmkp(fname)
 
-vmkp = filter(x -> x.pos > floor(Int, vseg[b].ibeg/k) && x.pos < floor(Int, vseg[b].iend/k), mkp)
-vpeaks = map(x -> x.pos - floor(Int, vseg[b].ibeg/k), vmkp)
+vmkp = filter(x -> x.pos > vseg[b].ibeg && x.pos < vseg[b].iend, mkp)
+vpeaks = map(x -> x.pos - vseg[b].ibeg, vmkp)
 vbad = map(x -> x.bad, vmkp)
-badpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad!=0, vmkp))
-zerobadpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad==0, vmkp))
+badpeaks = map(x -> x.pos-vseg[b].ibeg, filter(x -> x.bad!=0, vmkp))
+zerobadpeaks = map(x -> x.pos-vseg[b].ibeg, filter(x -> x.bad==0, vmkp))
 
-segenv = filtered.envfilt[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvR = filtered.LvR[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvN = filtered.LvN[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvP = filtered.LvP[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segenv = envfilt[vseg[b].ibeg:vseg[b].iend]
+segLvR = LvR[vseg[b].ibeg:vseg[b].iend]
+segLvN = LvN[vseg[b].ibeg:vseg[b].iend]
+segLvP = LvP[vseg[b].ibeg:vseg[b].iend]
 
-plot(segenv, label = "sig")
-plot!(segLvR, label = "LvR")
-plot!(segLvN, label = "LvN")
-plot!(segLvP, label = "LvP")
-xlims!(6000, 12000)
-ylims!(-1000, 10000)
+delay = 100
 
-scatter!(zerobadpeaks, segenv[zerobadpeaks])
-scatter!(badpeaks, segenv[badpeaks])
+plot(segenv[1:end-delay], label = "sig")
+plot!(segLvR[1:end-delay], label = "LvR")
+plot!(segLvN[1:end-delay], label = "LvN")
+plot!(segLvP[1:end-delay], label = "LvP")
+xlims!(8000, 12000)
+ylims!(-1000, 7500)
+
+scatter!(zerobadpeaks.+k, segenv[zerobadpeaks.+k])
+scatter!(badpeaks.+k, segenv[badpeaks.+k])
 
 # ПРОВЕРКА ДЛЯ ПУЛЬСАЦИЙ
 
@@ -118,37 +148,53 @@ scatter!(badpeaks, segenv[badpeaks])
 fname = "data/KT 07 AD ECG/PX11321102817293_filtpulse.txt"
 
 filtered = readfilt(fname)
+pulse = resample(filtered.pulse, k)
+pressDcm = resample(filtered.pressDcm, k)
+smoothPulse = resample(filtered.smoothPulse, k)
+basePulse = resample(filtered.basePulse, k)
+tch = resample(filtered.tch, k)
+LvR = resample(filtered.LvR, k)
+LvZ = resample(filtered.LvZ, k)
+LvP = resample(filtered.LvP, k)
 
-plot(filtered.pulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(filtered.pressDcm[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(filtered.smoothPulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot(filtered.basePulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
-plot!(filtered.tch[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)])
+plot(pulse[vseg[b].ibeg:vseg[b].iend-delay])
+plot!(pressDcm[vseg[b].ibeg:vseg[b].iend-delay])
+plot!(smoothPulse[vseg[b].ibeg:vseg[b].iend-delay])
+plot(basePulse[vseg[b].ibeg:vseg[b].iend-delay])
+plot!(tch[vseg[b].ibeg:vseg[b].iend-delay])
 
 #### РАЗМЕТКА ###
 fname = "data/KT 07 AD ECG/PX11321102817293_pulse_mkp.txt"
 
 mkp = readmkp(fname)
 
-vmkp = filter(x -> x.pos > floor(Int, vseg[b].ibeg/k) && x.pos < floor(Int, vseg[b].iend/k), mkp)
-vpeaks = map(x -> x.pos - floor(Int, vseg[b].ibeg/k), vmkp)
+vmkp = filter(x -> x.ibeg > vseg[b].ibeg && x.iend < vseg[b].iend, mkp)
+vpeaks = map(x -> (ibeg = x.ibeg - vseg[b].ibeg, iend = x.iend - vseg[b].ibeg), vmkp)
 vbad = map(x -> x.bad, vmkp)
-badpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad!=0, vmkp))
-zerobadpeaks = map(x -> x.pos-floor(Int, vseg[b].ibeg/k), filter(x -> x.bad==0, vmkp))
+badpeaks = map(x -> (ibeg = x.ibeg - vseg[b].ibeg, iend = x.iend - vseg[b].ibeg), filter(x -> x.bad!=0, vmkp))
+zerobadpeaks = map(x -> (ibeg = x.ibeg - vseg[b].ibeg, iend = x.iend - vseg[b].ibeg), filter(x -> x.bad==0, vmkp))
 
-segenv = filtered.basePulse[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvR = filtered.LvR[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvZ = filtered.LvZ[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
-segLvP = filtered.LvP[floor(Int, vseg[b].ibeg/k):floor(Int, vseg[b].iend/k)]
+segenv = tch[vseg[b].ibeg:vseg[b].iend-delay]
+segLvR = LvR[vseg[b].ibeg:vseg[b].iend-delay]
+segLvZ = LvZ[vseg[b].ibeg:vseg[b].iend-delay]
+segLvP = LvP[vseg[b].ibeg:vseg[b].iend-delay]
 
-plot(segenv, label = "sig")
+# plot(basePulse[vseg[b].ibeg:vseg[b].iend-delay], label = "pulse")
+plot(segenv.*10, label = "tacho")
 plot!(segLvR, label = "LvR")
 plot!(segLvZ, label = "LvZ")
 plot!(segLvP, label = "LvP")
-# xlims!(2000, 6000)
+xlims!(5000, 8000)
 ylims!(-2000, 5000)
 
-scatter!(zerobadpeaks, segenv[zerobadpeaks])
-scatter!(badpeaks, segenv[badpeaks])
+begs = map(x -> x.ibeg, zerobadpeaks)
+ends = map(x -> x.iend, zerobadpeaks)
+scatter!(begs, segenv[begs])
+scatter!(ends, segenv[ends])
+
+begs = map(x -> x.ibeg, badpeaks)
+ends = map(x -> x.iend, badpeaks)
+scatter!(begs, segenv[begs])
+scatter!(ends, segenv[ends])
 
 filter(x -> x!=0, vbad)

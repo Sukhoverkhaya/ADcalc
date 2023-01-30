@@ -2,256 +2,194 @@
 
 using Plots
 using DataFrames
+using CSV
 
 include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/beat2beat.jl") # скрипт для сравнения по точкам от Юлии Александровны
 include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/refmkpguifunctions.jl")
 include("../src/readfiles.jl") 
 include("D:/ИНКАРТ/Pulse_Sukhoverkhaya/src/my_filt.jl")
 
-# include("../src/bypointcompare.jl")
+mutable struct Metrics
+    filename::String # имя файла
+    meas::Int64      # номер измерения
 
-# из разметки тонов читаем позиции, из пульсаций - минимумы
-struct MKP
-    pos::Int32
-    type::Int64
-end
-
-function readmkp(fname)
-
-    mkp = MKP[]
-
-    open(fname) do file
-        line = readline(file) # пропускаем заголовок
-        while !eof(file)
-            line = readline(file)
-            vls = split(line, "   ")
-            if length(vls) == 2
-                pos = parse(Int32, vls[1])
-            else
-                pos = parse(Int32, vls[2])
-            end
-            type = parse(Int32, vls[end])
-            push!(mkp, MKP(pos, type))
-        end
-    end
-
-    return mkp
-end
-
-# находится ли точка внутри рабочей зоны
-function isinworkzone(wzbounds::Bounds, point::Union{Int64, Int32})
-    if point >= minimum([wzbounds.ibeg, wzbounds.iend]) && point <= maximum([wzbounds.ibeg, wzbounds.iend])
-        return true
-    else
-        return false
-    end
-end
-
-function bothwz(wzpump::Bounds, wzdesc::Bounds, point::Union{Int64, Int32})
-    isinpump = isinworkzone(wzpump, point)
-    isindesc = isinworkzone(wzdesc, point)
-
-    return isinpump || isindesc
-end
-
-struct Metrics
     TP::Int64
     FP::Int64
+    TN::Int64
     FN::Int64
+    Ac::Float64
     Se::Float64
+    Sp::Float64
     PPV::Float64
+    NPV::Float64
 end
 
-function metricscalc(comp_res::Vector{Tuple{Int64, Int64}}, ref_pres::Vector{MKP}, alg_pres::Vector{MKP}, wzpump::Bounds, wzdesc::Bounds)
-    
-    TP = 0; FP = 0; FN = 0
-    for (r, a) in comp_res
-        if r != -1 && a != -1 # есть и в реф, и в тест
-            if bothwz(wzpump, wzdesc, ref_pres[r].pos) 
-                # if ref_pres[r].type != 2 # если не отмечена в реф, как шум
-                    TP += 1 
-                # else # если отмечена в реф, как шум
-                #     FP += 1
-                # end
+function getmetrics(compareres::Vector{Tuple{Int64, Int64}}, rbad::Vector{Int64}, tbad::Vector{Int64})
+
+    TP = 0; TN = 0; FP = 0; FN = 0; Ac = 0.0; Se = 0.0; Sp = 0.0; PPV = 0.0; NPV = 0.0
+
+
+    # на этом этапе причина браковки в тесте не интересует, поэтому метки типа из теста переводим в булевые
+    # tbad = map(x -> x == 0 ? false : true, tbad)
+    tbad = fill(false, lastindex(tbad))
+
+    for (ref, test) in compareres
+        if ref != -1 && test != -1                          # есть и в реф, и в тест (предполагаемый TP)
+            if rbad[ref] != 2 && !tbad[test] TP += 1;       # знач/незнач в реф и не збраковано в тесте
+            elseif rbad[ref] == 2 && !tbad[test] FP += 1;   # шум в реф и не забраковано в тесте
+            elseif rbad[ref] != 1 && tbad[test] TN += 1;    # не знач или шум в реф и забраковано в тесте
+            elseif rbad[ref] == 1 && tbad[test] FN += 1;    # знач в реф и забраковано в тесте
             end
-        elseif r != -1 && a == -1 # есть в реф, нету в тест
-            if bothwz(wzpump, wzdesc, ref_pres[r].pos)
-                if ref_pres[r].type != 0 # если не отмечена в реф, как незначимая
-                    FN += 1
-                end
-            end
-        elseif r == -1 && a != 1 # нету в реф, есть в тест
-            if bothwz(wzpump, wzdesc, alg_pres[a].pos)
-                FP += 1
-            end
+        elseif ref == -1 && test == -1  # такого не должно случаться, но на всякий проверим
+            println("оба -1!!!")
+        elseif ref == -1 && test != -1                  # нету в реф, есть в тест (предполагаемый FP)
+            if !tbad[test] FP += 1 else TN += 1 end     # если в тесте не забраковано, то FP, в противном случае - TN
+        elseif ref != -1 && test == -1                  # есть в реф, нету в тест (предполагаемый FN)
+            if rbad[ref] == 1 FP += 1 else TN += 1 end
         end
     end
-    Se = round(TP/(TP+FN)*100, digits = 2)
-    PPV = round(TP/(TP+FP)*100, digits = 2)
 
-    return Metrics(TP, FP, FN, Se, PPV)
+    Ac = (TP+TN)/(TP+TN+FP+FN); Ac = round(Ac*100, digits = 2)
+
+    if (TP+FN) != 0 Se = TP/(TP+FN); Se = round(Se*100, digits = 2) end
+    if (TN+FP) != 0 Sp = TN/(TN+FP); Sp = round(Sp*100, digits = 2) end
+
+    if (TP+FP) != 0 PPV = TP/(TP+FP); PPV = round(PPV*100, digits = 2) end
+    if (TN+FN) != 0 NPV = TN/(TN+FN); NPV = round(NPV*100, digits = 2) end
+
+    return Metrics("", 0, TP, FP, TN, FN, Ac, Se, Sp, PPV, NPV)
 end
 
-function metricscalc(mt::Vector{Metrics})
-    tTP = sum(map(x -> x.TP, mt))
-    tFP = sum(map(x -> x.FP, mt))
-    tFN = sum(map(x -> x.FN, mt))
-    tSe = round(tTP/(tTP+tFN)*100, digits = 2)
-    tPPV = round(tTP/(tTP+tFP)*100, digits = 2)
+function getmetrics(metrics::Vector{Metrics}) # среднее по всем метрикам
 
-    return Metrics(tTP, tFP, tFN, tSe, tPPV)
+    sTP = 0; sTN = 0; sFP = 0; sFN = 0; Ac = 0.0; Se = 0.0; Sp = 0.0; PPV = 0.0; NPV = 0.0
+
+    TP = map(x -> x.TP, metrics)
+    TN = map(x -> x.TN, metrics)
+    FP = map(x -> x.FP, metrics)
+    FN = map(x -> x.FN, metrics)
+
+    sTP = sum(TP)
+    sTN = sum(TN)
+    sFP = sum(FP)
+    sFN = sum(FN)
+
+    Ac = (sTP+sTN)/(sTP+sTN+sFP+sFN); Ac = round(Ac*100, digits = 2)
+
+    if (sTP+sFN) != 0 Se = sTP/(sTP+sFN); Se = round(Se*100, digits = 2) end
+    if (sTN+sFP) != 0 Sp = sTN/(sTN+sFP); Sp = round(Sp*100, digits = 2) end
+
+    if (sTP+sFP) != 0 PPV = sTP/(sTP+sFP); PPV = round(PPV*100, digits = 2) end
+    if (sTN+sFN) != 0 NPV = sTN/(sTN+sFN); NPV = round(NPV*100, digits = 2) end
+
+    return Metrics("", 0, sTP, sFP, sTN, sFN, Ac, Se, Sp, PPV, NPV)
 end
 
-#__________________________________________________________
-ref_fold = "ref from gui" # папка в текущем проекте, куда перенесена референтная разметка гуишного формата
-mkp_fold = "formatted alg markup" # папка в текущем проекте, где лежит реформатированная разметка после markup_reduction.jl
-stat_fold = "compare statistics" # папка в текущем проекте, куда сохраняется результат расчета статистик по сравнению разметок
-basename = "Noise Base" # имя базы (все папки с относящимися к ней данными должны называться также)
+function isinbounds(pos::Int64, bounds::Bounds) # находится ли точка внутри границ (случай двух границ)
+    ibeg = minimum([bounds.ibeg, bounds.iend])
+    iend = maximum([bounds.ibeg, bounds.iend])
+    return pos >= ibeg && pos <= iend
+end
 
-# reffiles = readdir("$ref_fold/$basename")
-mkpfiles = readdir("$mkp_fold/$basename")
-#__________________________________________________________
+function isinbounds(pos::Int64, bounds::Vector{Bounds}) # находится ли точка хотя бы в одном из наборов по 2 границы
+    for bnd in bounds
+        if isinbounds(pos, bnd) return true end
+    end
+    return false
+end
 
-ftmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpfiles)) # вектор метрик по измерениям по всей базе
-fpmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpfiles)) # для подсчета среднего по всем файлам
+basename = "КТ 07 АД ЭКГ"                           # название базы
+testdir = "prototype/formatted mkp/$basename"       # путь к тестовой разметке
+refdir = "ref from gui/$basename"                   # путь к референтной разметке
+bindir = "D:/INCART/Pulse_Data/all bases/$basename" # путь к бинарям
 
-afmetrics_pres = NamedTuple[]
-afmetrics_tone = NamedTuple[]
+# сравниваем тестовую с реферетной, а не наоборот, поэтому отталкиваемся от именн фалов в тестовой
+filenames = readdir(testdir) # названия папок, соответсвующие названиям файлов, со вложенными папками по каждому измерению
 
-# расчет статы по каждому файлу базы
-for i in 1:lastindex(mkpfiles) # по файлам
-    # i = 11
-    reffile = "$ref_fold/$basename/$(mkpfiles[i])"
-    mkpfile = "$mkp_fold/$basename/$(mkpfiles[i])"
+Stat_tone = Metrics[] # статистики по всем файлам и измерениям в них
+Stat_pres = Metrics[]
 
-    binfile = "D:/INCART/Pulse_Data/all bases/$basename/$(mkpfiles[i]).bin"
-    signals, fs, timestart, units = readbin(binfile);
+# цикл по всем папкам (соответсвующим именам исходных файлов)
+for i in 1:lastindex(filenames)
+# i = 1 # для отладки
 
-    mkpmeasures = readdir(mkpfile)
-    refmeasures = readdir(reffile)
-    measures = length(mkpmeasures) <= length(refmeasures) ? mkpmeasures : refmeasures
+    measures = readdir("$testdir/$(filenames[i])") # все измерения (папка по каждому) в папке файла с тестовой разметкой
 
-    tmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpmeasures)) # вектор метрик по измерениям внутри файла
-    pmm0 = fill(Metrics(0,0,0,0.0,0.0), length(mkpmeasures)) # для подсчетасреднего по всем измерениям
+    imetrics_tone = Metrics[]  # вектор метрик по кажому измерению в файле
+    imetrics_pres = Metrics[] 
+    # цикл по всем папкам (соответсвующим номеру измерения). Внутри папки стандартные файлы: bounds.csv, pres.csv, tone.csv
+    for j in 1:lastindex(measures)
+    # j = 3
+        # читааем разметку по событиям тонов из тест и реф
+        # при этом, если файла (каких-то из вложенных папок, где он лежит) нету в реф, то просто пропускаем и идем дальше
+        # ref_toneEv = try ReadRefMkp("$refdir/$(filenames[i])/$(measures[j])/tone.csv") catch e continue end
+        ref_toneEv = ReadRefMkp("$refdir/$(filenames[i])/$(measures[j])/tone.csv")
+        test_toneEv = ReadRefMkp("$testdir/$(filenames[i])/$(measures[j])/tone.csv")
 
-    for j in 1:lastindex(measures) # по измерениям
-        # j = 2
-        rf = "$reffile/$(measures[j])"
-        mkpf = "$mkpfile/$(measures[j])"
+        ref_pulseEv = ReadRefMkp("$refdir/$(filenames[i])/$(measures[j])/pres.csv")
+        test_pulseEv = ReadRefMkp("$testdir/$(filenames[i])/$(measures[j])/pres.csv")
 
-        bounds = ReadRefMkp("$rf/bounds.csv")
+        ref_bounds = ReadRefMkp("$refdir/$(filenames[i])/$(measures[j])/bounds.csv")
 
-        ref_pres = readmkp("$rf/pres.csv")
-        alg_pres = readmkp("$mkpf/pres.csv")
+        # определения радиуса сравнения нужно знать частоту дискретизации, поэтому зачитываем хедер соответсвующего файла
+        fs = readhdr("$bindir/$(filenames[i]).hdr")[2]
 
-        ref_tone = readmkp("$rf/tone.csv")
-        alg_tone = readmkp("$mkpf/tone.csv")
+        # сравнение разметок
+        rcomp = 0.2 # радиус поиска пары в секундах
 
-        rc = 0.25 * fs # радиус поиска соответсвующих точек
+        # отправляем на сранение только позиции пиков внутри рабочей зоны
+        # для тонов
+        ref_inbounds = filter(x -> isinbounds(x.pos, [ref_bounds.iwz.pump, ref_bounds.iwz.desc]), ref_toneEv)
+        test_inbounds = filter(x -> isinbounds(x.pos, [ref_bounds.iwz.pump, ref_bounds.iwz.desc]), test_toneEv)
 
-        # сравнение по пульсациям
-        ref_pres_pos = map(x -> x.pos, ref_pres)
-        alg_pres_pos = map(x -> x.pos, alg_pres) 
-        pres_comp = calc_indexpairs(ref_pres_pos, alg_pres_pos, rc)
+        refpos = map(x -> x.pos, ref_inbounds); refbad_tone = map(x -> x.type, ref_inbounds)
+        testpos = map(x -> x.pos, test_inbounds); testbad_tone = map(x -> x.type, test_inbounds)
 
-        # сравнение по тонам
-        ref_tone_pos = map(x -> x.pos, ref_tone)
-        alg_tone_pos = map(x -> x.pos, alg_tone) 
-        tone_comp = calc_indexpairs(ref_tone_pos, alg_tone_pos, rc)
+        outcomp_tone = calc_indexpairs(refpos, testpos, floor(rcomp*fs))
 
-        ################ визуализация ##########
-        # binfile = "D:/INCART/Pulse_Data/all bases/$basename/$(mkpfiles[i]).bin"
-        # signals, fs, timestart, units = readbin(binfile);
+        # для пульсаций
+        ref_inbounds = filter(x -> isinbounds(x.ibeg, [ref_bounds.iwz.pump, ref_bounds.iwz.desc]), ref_pulseEv)
+        test_inbounds = filter(x -> isinbounds(x.ibeg, [ref_bounds.iwz.pump, ref_bounds.iwz.desc]), test_pulseEv)
 
-        # графики по пульсациям
-        # Pres = signals.Pres
-        # seg = Pres[bounds.segm.ibeg:bounds.segm.iend]
-        # # fsig_smooth = my_butter(seg, 2, 10, fs, "low")         # сглаживание
-        # # pres_sig = my_butter(fsig_smooth, 2, 0.3, fs, "high")  # устранение постоянной составляющей
+        refpos = map(x -> x.iend, ref_inbounds); refbad_pres = map(x -> x.type, ref_inbounds)
+        testpos = map(x -> x.iend, test_inbounds); testbad_pres = map(x -> x.type, test_inbounds)
 
-        # ref_pres_pos_1 = map(x -> x.pos, ref_pres[findall(x -> x.type == 1, ref_pres)]) # значимые 
-        # ref_pres_pos_0 = map(x -> x.pos, ref_pres[findall(x -> x.type == 0, ref_pres)]) # незначимые 
-        # ref_pres_pos_2 = map(x -> x.pos, ref_pres[findall(x -> x.type == 2, ref_pres)]) # шум 
-        
-        # plot(seg)
-        # scatter!(ref_pres_pos_0, seg[ref_pres_pos_0], markersize = 2, label="незначимые")
-        # scatter!(ref_pres_pos_1, seg[ref_pres_pos_1], markersize = 2, label="значимые")
-        # scatter!(ref_pres_pos_2, seg[ref_pres_pos_2], markersize = 2, label="шум")
-        # scatter!(alg_pres_pos, seg[alg_pres_pos], markersize = 1)
-        # xlims!(20000, 30000)
-        # xlims!(40000, 60000)
-        
-        # tpii = findall(x -> x[1] != -1 && x[2] != -1, pres_comp)
-        # tpi = map(x -> pres_comp[x][2], tpii)
-        # tppos = map( x -> alg_pres_pos[x], tpi)
+        outcomp_pres = calc_indexpairs(refpos, testpos, floor(rcomp*fs))
 
-        # scatter!(tppos, seg[tppos], markersize = 2, markershape = :star)
+        ##
+        metrics = getmetrics(outcomp_tone, refbad_tone, testbad_tone)
+        metrics.filename = filenames[i]; metrics.meas = j
+        push!(imetrics_tone, metrics)
+        push!(Stat_tone, metrics)
 
-        ## графики по тонам
-        # Tone = signals.Tone
-        # seg = Tone[bounds.segm.ibeg:bounds.segm.iend]
-        # # fsig_smooth = my_butter(seg, 2, 10, fs, "low")         # сглаживание
-        # # pres_sig = my_butter(fsig_smooth, 2, 0.3, fs, "high")  # устранение постоянной составляющей
+        metrics = getmetrics(outcomp_pres, refbad_pres, testbad_pres)
+        metrics.filename = filenames[i]; metrics.meas = j
+        push!(imetrics_pres, metrics)
+        push!(Stat_pres, metrics)
 
-        # ref_tone_pos_1 = map(x -> x.pos, ref_tone[findall(x -> x.type == 1, ref_tone)]) # значимые 
-        # ref_tone_pos_0 = map(x -> x.pos, ref_tone[findall(x -> x.type == 0, ref_tone)]) # незначимые 
-        # ref_tone_pos_2 = map(x -> x.pos, ref_tone[findall(x -> x.type == 2, ref_tone)]) # шум 
-        
-        # plot(seg)
-        # scatter!(ref_tone_pos_0, seg[ref_tone_pos_0], markersize = 2, label="незначимые")
-        # scatter!(ref_tone_pos_1, seg[ref_tone_pos_1], markersize = 2, label="значимые")
-        # scatter!(ref_tone_pos_2, seg[ref_tone_pos_2], markersize = 2, label="шум")
-        # scatter!(alg_tone_pos, seg[alg_tone_pos], markersize = 1)
-        # xlims!(20000, 30000)
-        # xlims!(40000, 60000)
-        
-        # tpii = findall(x -> x[1] != -1 && x[2] != -1, tone_comp)
-        # tpi = map(x -> tone_comp[x][2], tpii)
-        # tppos = map( x -> alg_tone_pos[x], tpi)
-
-        # scatter!(tppos, seg[tppos], markersize = 1)
-        #########################################
-
-        pmm0[j] = metricscalc(pres_comp, ref_pres, alg_pres, bounds.iwz.pump, bounds.iwz.desc)
-        tmm0[j] = metricscalc(tone_comp, ref_tone, alg_tone, bounds.iwz.pump, bounds.iwz.desc)
-    
-        pmm = (filename = mkpfiles[i], measure = measures[j], TP = pmm0[j].TP, FP = pmm0[j].FP, FN = pmm0[j].FN, Se = pmm0[j].Se, PPV = pmm0[j].PPV)
-        tmm = (filename = mkpfiles[i], measure = measures[j], TP = tmm0[j].TP, FP = tmm0[j].FP, FN = tmm0[j].FN, Se = tmm0[j].Se, PPV = tmm0[j].PPV)
-
-        push!(afmetrics_pres, pmm)
-        push!(afmetrics_tone, tmm)
     end
 
-    sp = metricscalc(pmm0)
-    tp = metricscalc(tmm0)
+    # среднее по всем измерениям в файле
+    fmetrics = getmetrics(imetrics_tone)
+    fmetrics.filename = "Total $(filenames[i])"
+    push!(Stat_tone, fmetrics)
+    
+    fmetrics = getmetrics(imetrics_pres)
+    fmetrics.filename = "Total $(filenames[i])"
+    push!(Stat_pres, fmetrics)
 
-    fppm = (filename = "Result", measure = 0, TP = sp.TP, FP = sp.FP, FN = sp.FN, Se = sp.Se, PPV = sp.PPV)
-    tppm = (filename = "Result", measure = 0, TP = tp.TP, FP = tp.FP, FN = tp.FN, Se = tp.Se, PPV = tp.PPV)
-    push!(afmetrics_pres, fppm)
-    push!(afmetrics_tone, tppm)
-
-    fpmm0[i] = sp
-    ftmm0[i] = tp
 end
 
-# расчет статы по всей базе
-pt = metricscalc(fpmm0)
-tt = metricscalc(ftmm0)
+total = getmetrics(Stat_tone)
+total.filename = "Total"
+push!(Stat_tone, total)
 
-tpm = (filename = "Total", measure = 0, TP = pt.TP, FP = pt.FP, FN = pt.FN, Se = pt.Se, PPV = pt.PPV)
-ttm = (filename = "Total", measure = 0, TP = tt.TP, FP = tt.FP, FN = tt.FN, Se = tt.Se, PPV = tt.PPV)
+total = getmetrics(Stat_pres)
+total.filename = "Total"
+push!(Stat_pres, total)
 
-push!(afmetrics_pres, tpm)
-push!(afmetrics_tone, ttm)
+res_tone = DataFrame(Stat_tone)
+res_pres = DataFrame(Stat_pres)
 
-# перевод всей статистики в датафрейм для сохранения в csv
-df_pres = DataFrame(afmetrics_pres)
-df_tone = DataFrame(afmetrics_tone)
-
-# создание папок под стату, если не было
-try readdir(stat_fold) catch e mkdir(stat_fold) end
-try readdir("$stat_fold/$basename") catch e mkdir("$stat_fold/$basename") end
-
-# сохранение статы
-CSV.write("$stat_fold/$basename/pres_stat.csv", df_pres, delim = ";")
-CSV.write("$stat_fold/$basename/tone_stat.csv", df_tone, delim = ";")
+CSV.write("compare results/tonestats_$basename.csv", res_tone, delim = ";")
+CSV.write("compare results/presstats_$basename.csv", res_pres, delim = ";")

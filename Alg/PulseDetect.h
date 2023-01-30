@@ -9,20 +9,20 @@ struct EventPulseElement
 	int32_t pulse;
 	int32_t pos;
 	
-	void Reset()
+	inline void Reset()
 	{
 		pulse = 0;
 		pos   = 0;
 	}
 	
-	void Set( int32_t _press, int32_t _pulse, int32_t _pos )
+	inline void Set( int32_t _press, int32_t _pulse, int32_t _pos )
 	{
 		press = _press;
         pulse = _pulse;
 		pos   = _pos;
 	}
 	
-	void operator = (const EventPulseElement& rhs)
+	inline void operator = (const EventPulseElement& rhs)
 	{
 		press = rhs.press;
         pulse = rhs.pulse;
@@ -32,15 +32,16 @@ struct EventPulseElement
 
 struct PulseEvent
 {
-	int32_t  bad;
-	int32_t  pos;
-	int32_t  val;
-	int32_t  range;
-	int32_t  press;
-	int32_t  imax;
-	int32_t  startMarkPos;
+	int32_t bad;
+	int32_t pos;
+	int32_t val;
+	int32_t range;
+	int32_t press;
+	int32_t imax;
+    int32_t imin;
+	int32_t startMarkPos;
 	
-	void Reset()
+	inline void Reset()
 	{
 		bad = 0;
 		pos = 0;
@@ -48,6 +49,7 @@ struct PulseEvent
 		range = 0;
         press = 0;
 		imax  = 0;
+        imin  = 0;
 		startMarkPos = 0;
 	}
 };
@@ -58,7 +60,7 @@ struct EventPulse
 	EventPulseElement i1;
 	EventPulseElement i2;
 	EventPulseElement imax;
-    //	EventPulseElement imin;
+    EventPulseElement imin;
     
 	int32_t W;
 	int32_t Range;
@@ -67,13 +69,14 @@ struct EventPulse
 	int32_t kW;
 	int32_t speed;
 	
-	void Reset()
+	inline void Reset()
 	{
 		bad = true;
 		i1.Reset();
 		i2.Reset();
 		imax.Reset();
-		//imin.Reset();		
+        imin.Reset();
+
 		W = 0;
 		Range = 0;
 		n1 = 0;
@@ -91,7 +94,7 @@ struct CandidatesPulse
 		EventPulseElement main; //В main хранится итоговое значение
 		EventPulseElement back; //В back хранится промежуточное найденное
 		
-		void Reset()
+		inline void Reset()
 		{
 			main.Reset();
 			back.Reset();
@@ -101,14 +104,14 @@ struct CandidatesPulse
 	MainBack i1;
 	MainBack i2;
 	MainBack imax;
-//	MainBack imin;
+    MainBack imin;
 	
-	void Reset()
+	inline void Reset()
 	{	
 		i1.Reset();
 		i2.Reset();
 		imax.Reset();
-//    imin.Reset();
+        imin.Reset();
 	}
 	
 };
@@ -122,7 +125,7 @@ struct InnerEvents
 	bool eventRdy;
 	bool eventMaxCandidate;	
 
-	void Reset()
+	inline void Reset()
 	{
 		eventUp            = false;
 		eventDn            = false;
@@ -220,7 +223,7 @@ struct PulseDetect
             }
         }
                 
-        if (x > LvR)		 // поиск максимума
+        if (x > LvR) // поиск максимума
         {
             LvR = x;
             if ( LvP < LvR )
@@ -272,18 +275,39 @@ struct PulseDetect
 
     inline void param(int32_t press, int32_t pulse)	// Параметризатор
     {
+
+        //поиск глобального минимума давления
+        if( candid.imin.back.pulse > pulse ) 
+        {
+            candid.imin.back.Set(press, pulse, cnt);
+        }
+
         if (e.eventUp) {candid.i1.back.Set(press, pulse, cnt);};    // событие перехода через уровень вверх
-        if (e.eventPkDn) {candid.i2.main.Set(press, pulse, cnt);};  // событие перехода через уровень вниз, когда кандидат в максимум уже найден
+        if (e.eventPkDn) // событие перехода через уровень вниз, когда кандидат в максимум уже найден
+        {
+            candid.i2.main.Set(press, pulse, cnt);
+            //сбрасываем минимум
+            candid.imin.back.pulse = INT32_MAX;
+        };  
         if (e.eventMaxCandidate) 
         {
             candid.i1.main = candid.i1.back;
             candid.imax.back.Set(press, pulse, cnt);
+
+            //фиксируем минимум
+            if( candid.imin.main.pulse > candid.imin.back.pulse )
+            {
+                candid.imin.main = candid.imin.back;
+            }
         };
         if (e.eventRdy)
         {
             // Двигаем буфер
             ++cur %= rail; ++prev %= rail; ++last %= rail; ++end %= rail;
             eBuf[cur].Reset();
+
+            eBuf[prev].imin = candid.imin.main;
+		    candid.imin.main.pulse = INT32_MAX;  //сбрасываем минимум
 
             eBuf[cur].i1 = candid.i1.main;
             eBuf[cur].i2 = candid.i2.main;
@@ -308,8 +332,8 @@ struct PulseDetect
         EventPulse& eNext     = eBuf[cur];
         EventPulse& eCurrent  = eBuf[prev];
         EventPulse& ePrevious = eBuf[last];
-        int32_t multi = 1000;
-        int32_t kPres = 1000;
+        int32_t multi = 1000; // by skv : возможно, здесь должна быть частота дискретизации.
+        int32_t kPres = 1000; // и зедсь тоже.
         int32_t bad = 0;
 
         if(e.eventRdy)
@@ -336,7 +360,8 @@ struct PulseDetect
             if( eCurrent.W  * multi < 250 * Fs || 1500 * Fs < eCurrent.W * multi ) { discardArr[1]++; bad += pow2(0); }
             if ( eCurrent.n1 * multi < 80 * Fs )                                   { discardArr[2]++; bad += pow2(1); }
             if ( eCurrent.Range < kPres / 3 || 5 * kPres < eCurrent.Range )        { discardArr[3]++; bad += pow2(2); } 	
-            if ( eCurrent.duty < 120 || 800 < eCurrent.duty )                      { discardArr[4]++; bad += pow2(3); } 	
+            // if ( eCurrent.duty < 120 || 800 < eCurrent.duty )                      { discardArr[4]++; bad += pow2(3); } 	
+            if ( eCurrent.duty < 100 || 800 < eCurrent.duty )                      { discardArr[4]++; bad += pow2(3); } 	
             if ( eCurrent.kW < 500 && ( eCurrent.W * multi < 500 * Fs ) )          { discardArr[5]++; bad += pow2(4); }
             if ( eCurrent.kW > 2000 && ( eNext.W * multi > 1000 * Fs ) )           { discardArr[6]++; bad += pow2(5); }			
             // if( GET_SERVICE(BpmAlg)->IsAscend() ) //Различается в зависимости от того подъем или спуск
@@ -357,6 +382,7 @@ struct PulseDetect
             pulse.range = eCurrent.Range;
             pulse.val   = eCurrent.i2.pulse;
             pulse.imax  = eCurrent.imax.pos;
+            pulse.imin  = eCurrent.imin.pos;
             pulse.startMarkPos = startMarkPos;
             
             trends[0] = eCurrent.Range;

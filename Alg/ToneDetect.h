@@ -15,7 +15,6 @@
     struct ToneEvent : Tone
     {
         int32_t bad; 
-        int32_t pos;
         int32_t startMarkPos;
 
         Reset()
@@ -31,7 +30,7 @@
 
     struct SmartRoundBuff /// общий большой буфер
     {
-        const int rail;
+        const int32_t rail;
         Tone* buf;
         int32_t forward;   //rd
         int32_t backward;  //wr
@@ -223,7 +222,7 @@
             // ДО пика
             int32_t wBefore = 0;
             RBIterator it = peakPos; // присваиваем итератору значение позиции текущего пика в кольцевом буфере
-            for(int i = 0; i < Wmax; ++i, --it) // и идем по буферу (т.е. во времени) в обратном направлении
+            for(int32_t i = 0; i < Wmax; ++i, --it) // и идем по буферу (т.е. во времени) в обратном направлении
             {	
                 if( it.Get().env < Lvl )
                 {
@@ -235,7 +234,7 @@
             // После
             int32_t wAfter = 0;
             it = peakPos;
-            for(int i = 0; i < Wmax; ++i, ++it)
+            for(int32_t i = 0; i < Wmax; ++i, ++it)
             {		
                 if( it.Get().env < Lvl )
                 {
@@ -253,8 +252,6 @@
             RBIterator iend(buf);
             ibeg = peakPos.it - wBefore - 1 - noiseOffset1;
             iend = ibeg.it - noiselen;
-
-            //cerr << (iend.Get().pos < ibeg.Get().pos) << " " << (ibeg.Get().pos < peakPos.Get().pos) << " ";
             
             int32_t MaxBefore = ibeg.Get().env;
             while( ibeg != iend )
@@ -266,8 +263,6 @@
             //вперед
             ibeg = peakPos.it + wAfter + 1 + noiseOffset2;
             iend = ibeg.it + noiselen;
-
-            //cerr << (peakPos.Get().pos < ibeg.Get().pos) << " " << (ibeg.Get().pos < iend.Get().pos) << endl;
             
             int32_t MaxAfter = ibeg.Get().env;
             while( ibeg != iend )
@@ -279,11 +274,6 @@
             int32_t noise = fnMax(MaxBefore, MaxAfter);
             if (noise == 0) noise = 1;
             snr = (peakPos.Get().env*10 / noise);
-            // // cerr << Lvl << " " << MaxBefore << " " << MaxAfter << endl;
-            // if (MaxBefore > Lvl || MaxAfter > Lvl)
-            // {
-            //     cerr << Lvl << " " << MaxBefore << " " << MaxAfter << endl;
-            // }
         };
 
         ToneEvent toneEv;
@@ -293,7 +283,7 @@
             int32_t bad = 0;
 
             if (peakPos.Get().press < 30000) {bad += pow2(1);}
-            if (snr < 25) {bad += pow2(2);} // слишком много бракует!!!!
+            if (snr < 25) {bad += pow2(2);} 
             if (peakPos.Get().env < 300/20) {bad += pow2(3);}
 
             toneEv.bad = bad;
