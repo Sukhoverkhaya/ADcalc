@@ -17,7 +17,7 @@
         int32_t bad; 
         int32_t startMarkPos;
 
-        Reset()
+        void Reset()
         {
             env = 0;
             val = 0;
@@ -117,7 +117,7 @@
             Reset();
         };
 
-        inline Reset()
+        inline void Reset()
         {
             minR = 90;
             LvN = 100;
@@ -161,7 +161,7 @@
 		RBIterator peakPos;
 
 
-        inline detect() // детектор
+        inline void detect() // детектор
         {
             int32_t tone = current.Get().env;
 
@@ -215,7 +215,7 @@
         int32_t W;   // Ширина
         int32_t snr; //Signal\noise ratio
 
-        inline param() // параметризатор (вызывается, когда peakflag = true;)
+        inline void param() // параметризатор (вызывается, когда peakflag = true;)
         {
             Lvl = (peakPos.Get().env)/Acoef;
             // поиск ширины
@@ -278,7 +278,7 @@
 
         ToneEvent toneEv;
 
-        inline discard() // отбраковщик
+        inline void discard() // отбраковщик
         {
             int32_t bad = 0;
 
@@ -296,7 +296,7 @@
         int32_t cnt; // Реальный текущий отсчет
         int32_t startMarkPos; // Позиция в точках относительно метки старта (старта чего: текущего измерения, накачки/спуска, etc.?)
 
-        inline Exe(int32_t env, int32_t tone, int32_t press)
+        inline void Exe(int32_t env, int32_t tone, int32_t press)
         {
             current.Set(env, tone, press, cnt); // добавление нового события в буфер
 

@@ -1,6 +1,8 @@
 #pragma once
 
 // коэффициенты
+#include <stdint.h>
+#include <memory>
 
 struct FiltOptions
 {
@@ -149,7 +151,7 @@ public:
         Reset();
     }
 
-    inline SetOptions(FiltOptions* _opt) {opt = _opt[fs];}; // установка нужного набора коэффициентов 
+    inline void SetOptions(FiltOptions* _opt) {opt = _opt[fs];}; // установка нужного набора коэффициентов
 
     inline void Reset() // перезапуск перед началом любого цикла обработки
     {

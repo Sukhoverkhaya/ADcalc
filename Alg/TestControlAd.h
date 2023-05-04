@@ -1,6 +1,7 @@
 #include "ControlTone.h" 
 #include "ControlPulse.h" 
 #include "WorkMode.h"
+#include <fstream>
 
 class ControlAd
 {
@@ -61,12 +62,12 @@ public:
         StatePulseDefl[STP::STATE_FAIL] = new StatePulseDeflFail(*controlpulse);
     };
 
-    inline int32_t Exe(ToneEvent& _toneEv) // вызывается только для событий тонов
+    inline void Exe(ToneEvent& _toneEv) // вызывается только для событий тонов
     {  
         if (controltone->ON) {CurrentToneStateMachine[controltone->nextState] -> NewTone(_toneEv); }
     };
 
-    inline int32_t Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
+    inline void Exe(PulseEvent& _pulseEv)  // вызывается только для событий пульсаций
     {
         if (controlpulse->ON) {CurrentPulseStateMachine[controlpulse->nextState] -> NewPulse(_pulseEv);};
 
