@@ -322,7 +322,7 @@ struct StateToneInfl2 : BaseStateTone
 	inline void Tick()
 	{
 		timer++;
-		if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
+        //if( sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 
 		if( timer > sm.wait * sm.Fs )
 		{
@@ -332,6 +332,7 @@ struct StateToneInfl2 : BaseStateTone
 			//проверка, что (сист*0.15) > (сист - диаст) или систалическое меньше 60, тогда продолжаем поиск
 			if( sm.inflEnd.press * 3 / 20 > (sm.inflEnd.press - sm.inflBeg.press) )  
 			{
+                sm.Nb = 0;
 				sm.ChangeState(STT::STATE_1);
 			}
 			else
@@ -524,6 +525,7 @@ struct StateToneDefl2 : BaseStateTone
 			//проверка, что (сист*0.15) > (сист - диаст)
 			if( sm.deflBeg.press * 3 / 20 > ( sm.deflBeg.press - sm.deflEnd.press))  
 			{
+                sm.Nb = 0;
 				sm.ChangeState(STT::STATE_1);
 			}
 			else

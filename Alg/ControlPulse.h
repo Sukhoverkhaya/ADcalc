@@ -377,7 +377,7 @@ struct StatePulseInfl2 : BaseStatePulse
 	inline void Tick()
 	{
 		timer++;
-		if(sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
+        //if(sm.buf[sm.cursor].press < PrsSet(NO_END_SEARCH_TILL_PRESS) ) return;
 		
 		// if( (sm.Lvl < sm.maxLvl * 3 / 5 && timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
 		if( (timer > sm.wait * sm.Fs ) /*|| sm.Nlow > 3*/ )
@@ -387,6 +387,7 @@ struct StatePulseInfl2 : BaseStatePulse
 			if( sm.inflEnd.press * 3 / 20 > ( sm.inflEnd.press - sm.inflBeg.press ) )  
 			{
 				sm.ChangeState(STP::STATE_1);
+                sm.Nb = 0;
 			}
 			else
 			{
@@ -650,6 +651,7 @@ struct StatePulseDefl2 : BaseStatePulse
 			if( sm.deflBeg.press * 3 / 20 > ( sm.deflBeg.press - sm.deflEnd.press ) )  
 			{
 				sm.ChangeState(STP::STATE_1);
+                sm.Nb = 0;
 			}
 			else
 			{
